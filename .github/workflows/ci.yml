@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ocg
+          POSTGRES_PASSWORD: ocg
+          POSTGRES_DB: ocg_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ocg"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The job's own throwaway Postgres container; nothing else is reachable.
+      DATABASE_URL: postgres://ocg:ocg@localhost:5432/ocg
+      TEST_DATABASE_URL: postgres://ocg:ocg@localhost:5432/ocg_test
+      BETTER_AUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generate a session secret for this run
+        run: echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Migrations match the schema
+        run: |
+          pnpm db:check
+          pnpm db:generate
+          test -z "$(git status --porcelain -- packages/db/migrations)" || {
+            git status --porcelain -- packages/db/migrations
+            echo "The schema has changed without a migration: run pnpm db:generate and commit the result."
+            exit 1
+          }
+      - name: Test (migrates a fresh database, then checks its rules)
+        run: pnpm test
+      - run: pnpm build
