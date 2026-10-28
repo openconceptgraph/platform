@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   foreignKey,
@@ -23,10 +24,18 @@ import { baseObject, objectKind } from "./registry";
 export const decision = pgEnum("decision", ["confirm", "reject", "needs-change"]);
 export type Decision = (typeof decision.enumValues)[number];
 
-/** A set of objects put to reviewers together, with planted controls among them. */
+/**
+ * A set of objects put to one reviewer together, with planted controls among
+ * them. Each batch suits one kind of reviewer: concept cards and prerequisite
+ * links for a mathematical reviewer, typical mistakes for a classroom one.
+ */
 export const batch = pgTable("batch", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: text("title").notNull(),
+  /** The reviewer who judges it. Only they may record judgements in it. */
+  assignedTo: text("assigned_to")
+    .notNull()
+    .references(() => user.id),
   createdBy: text("created_by")
     .notNull()
     .references(() => user.id),
@@ -82,8 +91,13 @@ export const judgement = pgTable(
     batchId: uuid("batch_id").references(() => batch.id),
     isControl: boolean("is_control").notNull().default(false),
     timeSpentMs: integer("time_spent_ms"),
-    /** The same reviewer's earlier judgement on the same object, now replaced. */
+    /** The same reviewer's earlier judgement on the same object, now replaced. Needs a reason. */
     supersedesId: uuid("supersedes_id"),
+    /**
+     * Set when this judgement was made on another object's screen: confirming a
+     * concept card also judges the curriculum lines it cites and its family.
+     */
+    coveredById: uuid("covered_by_id").references((): AnyPgColumn => judgement.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -108,5 +122,11 @@ export const judgement = pgTable(
        or (${t.decision} <> 'confirm' and coalesce(trim(${t.reason}), '') <> '')`,
     ),
     check("judgement_time_spent_nonnegative", sql`${t.timeSpentMs} >= 0`),
+    check(
+      "judgement_change_of_mind_explained",
+      sql`${t.supersedesId} is null or coalesce(trim(${t.reason}), '') <> ''`,
+    ),
+    check("judgement_covered_outside_batch", sql`${t.coveredById} is null or ${t.batchId} is null`),
+    index("judgement_covered_by_idx").on(t.coveredById),
   ],
 );

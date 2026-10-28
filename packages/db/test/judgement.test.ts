@@ -90,7 +90,9 @@ describe("the judgement record", () => {
     const [first] = await confirm(s);
 
     const other = await addUser(db);
-    const byOther = await pgError(confirm({ ...s, reviewer: other }, { supersedesId: first!.id }));
+    const byOther = await pgError(
+      confirm({ ...s, reviewer: other }, { supersedesId: first!.id, reason: "I disagree with them." }),
+    );
     expect(byOther.code).toBe("23503");
 
     const [second] = await confirm(s, {
@@ -101,15 +103,28 @@ describe("the judgement record", () => {
     });
     expect(second!.supersedesId).toBe(first!.id);
 
-    const again = await pgError(confirm(s, { supersedesId: first!.id }));
+    const again = await pgError(confirm(s, { supersedesId: first!.id, reason: "Back to my first view." }));
     expect(again.code).toBe("23505");
+  });
+
+  it("needs a written reason to change one's mind, even to confirm", async () => {
+    const s = await setup();
+    const [first] = await confirm(s, { decision: "reject", reasonCode: null, reason: "Not needed." });
+    const silent = await pgError(confirm(s, { supersedesId: first!.id }));
+    expect(silent.message).toMatch(/judgement_change_of_mind_explained/);
+    await expect(
+      confirm(s, { supersedesId: first!.id, reason: "The worked example shows it is needed." }),
+    ).resolves.toHaveLength(1);
   });
 });
 
 describe("batches and controls", () => {
   async function batchWith(s: Setup, controlExpected: "confirm" | "reject" | null) {
     const curator = await addUser(db, "curator");
-    const [b] = await db.insert(schema.batch).values({ title: "Week 1", createdBy: curator.id }).returning();
+    const [b] = await db
+      .insert(schema.batch)
+      .values({ title: "Week 1", assignedTo: s.reviewer.id, createdBy: curator.id })
+      .returning();
     await db
       .insert(schema.batchItem)
       .values({ batchId: b!.id, objectId: s.link.id, objectKind: "link", controlExpected });
@@ -130,8 +145,16 @@ describe("batches and controls", () => {
   it("refuses a judgement on an object outside the batch", async () => {
     const s = await setup();
     const elsewhere = await setup();
-    const b = await batchWith(elsewhere, null);
+    const b = await batchWith({ ...elsewhere, reviewer: s.reviewer }, null);
     expect((await pgError(confirm(s, { batchId: b.id }))).message).toMatch(/is not in batch/);
+  });
+
+  it("accepts judgements only from the batch's reviewer", async () => {
+    const s = await setup();
+    const b = await batchWith(s, null);
+    const other = await addUser(db);
+    const err = await pgError(confirm({ ...s, reviewer: other }, { batchId: b.id }));
+    expect(err.message).toMatch(/assigned to another reviewer/);
   });
 
   it("refuses a judgement in a closed batch", async () => {
@@ -139,5 +162,49 @@ describe("batches and controls", () => {
     const b = await batchWith(s, null);
     await db.update(schema.batch).set({ closedAt: new Date() }).where(eq(schema.batch.id, b.id));
     expect((await pgError(confirm(s, { batchId: b.id }))).message).toMatch(/closed/);
+  });
+});
+
+describe("covered judgements", () => {
+  it("belong to the covering judgement's reviewer and take its control flag", async () => {
+    const s = await setup();
+    const curator = await addUser(db, "curator");
+    const [b] = await db
+      .insert(schema.batch)
+      .values({ title: "Controls", assignedTo: s.reviewer.id, createdBy: curator.id })
+      .returning();
+    const fw = s.fw;
+    const concept = await addConcept(db, fw.id, "A planted concept");
+    await db
+      .insert(schema.batchItem)
+      .values({ batchId: b!.id, objectId: concept.id, objectKind: "concept", controlExpected: "reject" });
+
+    const [primary] = await db
+      .insert(judgements)
+      .values({
+        objectId: concept.id,
+        objectKind: "concept",
+        objectRevision: 1,
+        reviewerId: s.reviewer.id,
+        decision: "reject",
+        reason: "Not a concept.",
+        evidence: {},
+        batchId: b!.id,
+      })
+      .returning();
+    expect(primary!.isControl).toBe(true);
+
+    const [covered] = await confirm(s, { decision: "reject", reasonCode: null, reason: "Not a concept.", coveredById: primary!.id });
+    expect(covered!.isControl).toBe(true);
+
+    const other = await addUser(db);
+    const byOther = await pgError(confirm({ ...s, reviewer: other }, { coveredById: primary!.id }));
+    expect(byOther.message).toMatch(/reviewer of the judgement covering it/);
+
+    const inBatch = await pgError(confirm(s, { coveredById: primary!.id, batchId: b!.id }));
+    expect(inBatch.message).toMatch(/judgement_covered_outside_batch/);
+
+    const chained = await pgError(confirm(s, { coveredById: covered!.id }));
+    expect(chained.message).toMatch(/itself covered/);
   });
 });
