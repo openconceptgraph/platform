@@ -2,13 +2,14 @@
 
 The workbench runs on Vercel, with its working database on Neon Postgres. Both sit in Frankfurt: the app in Vercel's `fra1` region (pinned in `apps/web/vercel.json`), the database in Neon's AWS `eu-central-1`, so that every query is a short hop and the reviewers' personal data stays in the EU.
 
-## The Vercel project
+## Settings
 
 | Setting | Value |
 |---|---|
 | Root directory | `apps/web` (pnpm installs the whole workspace from the repository root) |
 | Framework | Next.js |
 | Node.js | 22.x, as in `.nvmrc` and CI |
+| Postgres | Neon's current major (18 at the time of writing); CI tests on 16 and 18 |
 | Git | connected to this repository: `main` deploys to production, pull requests to previews |
 
 Connecting the repository matters for the licence as well as for convenience: Vercel then tells each build which commit it is (`VERCEL_GIT_COMMIT_SHA`), and every page links to that commit's source (AGPL-3.0 section 13).

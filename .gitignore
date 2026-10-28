@@ -12,3 +12,7 @@ next-env.d.ts
 # Environment: only the example is committed
 .env*
 !.env.example
+
+# Vercel CLI link
+.vercel/
+.vercel
