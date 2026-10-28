@@ -2,14 +2,15 @@
 
 The software behind OpenConceptGraph: a review workbench, a publishing pipeline, a public API (REST conforming to CASE 1.1, GraphQL, MCP), an explorer and report generators. The data it works on are concept graphs of official curricula. The open specification is in [`spec`](https://github.com/openconceptgraph/spec), and released bases such as [`base-za-caps`](https://github.com/openconceptgraph/base-za-caps) each have their own repository.
 
-**Status: early.** This repository holds the data layer, sign-in and the reviewer's side of the review workbench. The curator's tools, releases, the API and the explorer come next.
+**Status: early.** This repository holds the data layer, sign-in, the review workbench with the curator's batch tool, and the first part of the pipeline: transcribing a curriculum, checking the transcription word for word, importing it and loading an AI draft. Releases, the API and the explorer come next.
 
 ## Layout
 
 ```
-apps/web        Next.js app: the review workbench so far; the API and explorer later
-packages/db     Drizzle schema, migrations and the database's own rules
-scripts/        local-pg.sh: a private Postgres for development and tests
+apps/web           Next.js app: the review workbench so far; the API and explorer later
+packages/db        Drizzle schema, migrations and the database's own rules
+packages/pipeline  From a curriculum's files to the working database: check, import, draft
+scripts/           local-pg.sh: a private Postgres for development and tests
 ```
 
 ## Getting started
@@ -52,6 +53,25 @@ pnpm user:create --email you@example.org --name "Your Name" --role reviewer
 pnpm seed:example --reviewer you@example.org
 pnpm dev                     # then sign in at http://localhost:3000
 ```
+
+## Building a base
+
+A base keeps its transcription of the curriculum in its own repository, such as [`base-za-caps`](https://github.com/openconceptgraph/base-za-caps): one folder per subject, holding the framework, each official document with its headings, each teaching plan with its placements, and one file per topic per grade with that topic's statements in the document's order. The pipeline takes it from there.
+
+```sh
+pnpm base mint ../base-za-caps/mathematics      # permanent IDs for new objects, codes for new statements
+pnpm base check ../base-za-caps/mathematics --pdf <the document's PDF>
+pnpm base import ../base-za-caps/mathematics    # into the working database
+pnpm base draft <draft file>                    # an AI draft of concepts, prerequisites and mistakes
+```
+
+**Mint** gives every object a UUID and every statement a code such as `8/1.3/c04` (grade, topic, column, number). It never changes one that exists.
+
+**Check** compares every statement, heading and label with the PDF's own text layer, word for word: the same characters in the same order, case and signs included, ignoring only spacing, list markers and layout. Then it reports any printed text that nothing accounts for, down to a single character, so an omission shows as surely as an addition. A PDF's text layer often holds a page out of reading order, with superscripts and list letters on lines of their own. The check allows for that, and asks for an eye check where it cannot tell where a raised character stands. Notation is written in Unicode (2³, aᵐ⁺ⁿ, √, ∛); a fraction is written numerator⁄denominator with the fraction slash, and brackets stand for a root's bar or a fraction line where those cover more than one term. A statement whose order the text layer cannot confirm is marked `eyeChecked`, and its characters must still all be on its page. The PDF must be the copy the document's file names by its SHA-256.
+
+**Import** loads the files into Postgres under their own IDs. Run again, it changes nothing that has not changed; a corrected statement becomes a new revision. Nothing is deleted: an object that is no longer in the files is refused, to be retired instead.
+
+**Draft** loads families, concepts, prerequisite links and typical mistakes, all as proposed. Each link cites the drafting run (model and prompt version) as its source, and each mistake cites the curriculum note that names it, or nothing, which flags it as unsourced. Objects are matched by code and links by their ends, so a revised draft updates in place. The drafting method is a versioned prompt in [`packages/pipeline/prompts`](packages/pipeline/prompts); a change of method is a new version. Drafts are working material, not data for publishing: only reviewed objects reach a release.
 
 ## Making batches
 
