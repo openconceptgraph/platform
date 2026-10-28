@@ -43,6 +43,8 @@ A confirmation needs a reason from a short list; a rejection or a request for a 
 
 Reviewers do not see the AI's agreement score or other reviewers' decisions, so that their judgement is their own. Planted controls look like any other item.
 
+Before their first review, each reviewer chooses a public name, which may be their own name or one that does not identify them, and an optional public line about themselves. Anything other people see, in the workbench now and in published data later, shows only that public name. The name on the account stays private, but every judgement remains attributable to a known person.
+
 To try it with an invented example curriculum:
 
 ```sh

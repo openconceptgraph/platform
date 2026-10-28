@@ -14,6 +14,10 @@ export function AppHeader({ name, children }: { name?: string; children?: ReactN
       {name && (
         <form action={signOut} className="who">
           {name} ·
+          <Link href="/profile" className="link-button">
+            Profile
+          </Link>
+          ·
           <button type="submit" className="link-button">
             Sign out
           </button>

@@ -431,6 +431,7 @@ blockquote .reference {
   flex: none;
 }
 textarea,
+input[type="text"],
 input[type="email"],
 input[type="password"] {
   width: 100%;
@@ -533,7 +534,7 @@ input:focus {
   display: block;
   margin-bottom: 14px;
 }
-.field span {
+.field > span {
   display: block;
   font-weight: 700;
   margin-bottom: 6px;

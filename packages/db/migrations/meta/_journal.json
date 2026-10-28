@@ -43,6 +43,13 @@
       "when": 1793206350447,
       "tag": "0005_status_follows_judgements",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793206598434,
+      "tag": "0006_reviewer_profile",
+      "breakpoints": true
     }
   ]
 }

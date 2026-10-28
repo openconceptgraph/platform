@@ -1,5 +1,6 @@
 import { type Db, type LangString, type ObjectKind, type ReviewStatus, schema } from "@ocg/db";
 import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { publicNameOf } from "./profile";
 import type { ScreenType } from "./reasons";
 
 // What a review screen shows about one batch item. It is built on the server,
@@ -7,8 +8,7 @@ import type { ScreenType } from "./reasons";
 // says exactly what the reviewer saw. Deliberately absent: the AI's agreement
 // score and other reviewers' decisions, which would anchor the reviewer.
 
-const { concept, document, educationLevel, family, level, link, misconception, node, source, statement, user } =
-  schema;
+const { concept, document, educationLevel, family, level, link, misconception, node, source, statement } = schema;
 
 export interface ObjectRef {
   id: string;
@@ -364,7 +364,7 @@ async function proposalFrom(db: Db, sourceId: string, rationale: string | null):
     case "publication":
       return { label: "Publication", detail: s.citation!, rationale: why };
     case "reviewer":
-      return { label: "Reviewer", detail: await userName(db, s.reviewerId!), rationale: why };
+      return { label: "Reviewer", detail: await publicNameOf(db, s.reviewerId!), rationale: why };
     default:
       return { label: "Unknown source", rationale: why };
   }
@@ -379,16 +379,12 @@ async function documentation(db: Db, sourceId: string): Promise<MistakeEvidence[
     case "statement":
       return { label: "The curriculum", quote: await statementQuote(db, s.statementId!) };
     case "reviewer":
-      return { label: `Seen in class by ${await userName(db, s.reviewerId!)}` };
+      return { label: `Seen in class by ${await publicNameOf(db, s.reviewerId!)}` };
     default:
       return undefined;
   }
 }
 
-async function userName(db: Db, id: string) {
-  const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, id));
-  return u?.name ?? "a reviewer";
-}
 
 function related(row: { code: string; title: LangString; status: ReviewStatus }): Related {
   return { code: row.code, title: pick(row.title), status: row.status };

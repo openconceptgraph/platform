@@ -8,6 +8,7 @@ import { itemsOf, nextUndecided } from "@/review/batches";
 import { createBatch, type NewBatchItem } from "@/review/create-batch";
 import { buildEvidence, type CardEvidence, type MistakeEvidence, type PrerequisiteEvidence } from "@/review/evidence";
 import { recordDecision } from "@/review/record";
+import { profileOf, saveProfile } from "@/review/profile";
 import { present, signPresentation, verifyPresentation } from "@/review/token";
 
 let db: Db;
@@ -279,5 +280,47 @@ describe("signing", () => {
       evidence: { type: "card" } as CardEvidence,
     });
     expect(verifyPresentation(token)?.batchId).toBe("b");
+  });
+});
+
+describe("public names", () => {
+  it("are unique whatever the case, and checked before saving", async () => {
+    const { reviewer } = await reviewerWithBatch();
+    const other = await reviewerWithBatch();
+    expect(await saveProfile(db, reviewer.id, { publicName: "  Reviewer   Kestrel ", publicNote: "Retired physicist" })).toEqual({
+      ok: true,
+    });
+    expect((await profileOf(db, reviewer.id))?.publicName).toBe("Reviewer Kestrel");
+    expect(await saveProfile(db, other.reviewer.id, { publicName: "reviewer kestrel" })).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/already uses that public name/),
+    });
+    expect(await saveProfile(db, other.reviewer.id, { publicName: "x" })).toMatchObject({ ok: false });
+    expect(await saveProfile(db, other.reviewer.id, { publicName: "ada@example.org" })).toMatchObject({ ok: false });
+    // Changing one's own public name is fine.
+    expect(await saveProfile(db, reviewer.id, { publicName: "Reviewer Osprey" })).toEqual({ ok: true });
+  });
+
+  it("are what a screen shows of a reviewer, never the name on their account", async () => {
+    const { reviewer } = await reviewerWithBatch();
+    await saveProfile(db, reviewer.id, { publicName: "Classroom reviewer 2" });
+    const [fw] = await db.select().from(schema.framework).limit(1);
+    const [seen] = await db
+      .insert(schema.source)
+      .values({ frameworkId: fw!.id, kind: "reviewer", reviewerId: reviewer.id })
+      .returning();
+    const [mistake] = await db
+      .insert(schema.misconception)
+      .values({
+        frameworkId: fw!.id,
+        humanCode: "MIS-099",
+        statement: { en: "Ordering negatives like positives." },
+        sourceId: seen!.id,
+      })
+      .returning();
+
+    const e = (await buildEvidence(db, { objectId: mistake!.id, objectKind: "misconception" })) as MistakeEvidence;
+    expect(e.documentedIn?.label).toBe("Seen in class by Classroom reviewer 2");
+    expect(JSON.stringify(e)).not.toContain(reviewer.name);
   });
 });
