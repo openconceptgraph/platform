@@ -7,7 +7,7 @@ import { parseArgs } from "node:util";
 import { exampleCurriculum } from "../src/example/curriculum";
 import { getDb } from "../src/lib/db";
 import { can } from "../src/lib/permissions";
-import { createBatch, userByEmail } from "../src/review/create-batch";
+import { createBatch, userByEmail } from "../src/curate/create-batch";
 
 const { values } = parseArgs({ options: { reviewer: { type: "string" }, curator: { type: "string" } } });
 if (!values.reviewer) {
@@ -26,7 +26,7 @@ try {
     throw new Error(`no account for ${values.curator}`);
   }
 
-  const { batchItems } = await exampleCurriculum(db);
+  const { batchItems } = await exampleCurriculum(db, curator.id);
   const batch = await createBatch(db, {
     title: "Example · Integers",
     assignedTo: reviewer.id,

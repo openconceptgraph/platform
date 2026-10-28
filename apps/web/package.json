@@ -12,7 +12,8 @@
     "typecheck": "next typegen && tsc",
     "test": "vitest run",
     "user:create": "tsx --env-file-if-exists=../../.env.local scripts/create-user.ts",
-    "seed:example": "tsx --env-file-if-exists=../../.env.local scripts/seed-example.ts"
+    "seed:example": "tsx --env-file-if-exists=../../.env.local scripts/seed-example.ts",
+    "batch": "tsx --env-file-if-exists=../../.env.local scripts/batch.ts"
   },
   "dependencies": {
     "@ocg/db": "workspace:*",

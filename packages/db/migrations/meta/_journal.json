@@ -50,6 +50,20 @@
       "when": 1793206598434,
       "tag": "0006_reviewer_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793207068314,
+      "tag": "0007_planted",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793207068989,
+      "tag": "0008_planted_rules",
+      "breakpoints": true
     }
   ]
 }

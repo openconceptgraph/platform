@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { exampleCurriculum } from "@/example/curriculum";
 import { itemsOf, nextUndecided } from "@/review/batches";
-import { createBatch, type NewBatchItem } from "@/review/create-batch";
+import { createBatch, type NewBatchItem } from "@/curate/create-batch";
 import { buildEvidence, type CardEvidence, type MistakeEvidence, type PrerequisiteEvidence } from "@/review/evidence";
 import { recordDecision } from "@/review/record";
 import { profileOf, saveProfile } from "@/review/profile";
@@ -24,7 +24,11 @@ const UNSOURCED_MISTAKE = 6;
 
 beforeAll(async () => {
   db = await freshTestDb();
-  items = (await exampleCurriculum(db)).batchItems;
+  const [curator] = await db
+    .insert(schema.user)
+    .values({ id: randomUUID(), name: "Cara Curator", email: "curator@example.org", role: "curator" })
+    .returning();
+  items = (await exampleCurriculum(db, curator!.id)).batchItems;
 });
 afterAll(async () => {
   await db.close();

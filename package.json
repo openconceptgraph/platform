@@ -17,7 +17,8 @@
     "db:check": "pnpm --filter @ocg/db run check",
     "pg": "scripts/local-pg.sh",
     "user:create": "pnpm --filter @ocg/web run user:create",
-    "seed:example": "pnpm --filter @ocg/web run seed:example"
+    "seed:example": "pnpm --filter @ocg/web run seed:example",
+    "batch": "pnpm --filter @ocg/web run batch"
   },
   "devDependencies": {
     "turbo": "^2.11.10",

@@ -1,6 +1,6 @@
 import { type Db, type Decision, type ObjectKind, schema } from "@ocg/db";
 import { eq, inArray } from "drizzle-orm";
-import { screenFor } from "./evidence";
+import { screenFor } from "@/review/evidence";
 
 export interface NewBatchItem {
   objectId: string;

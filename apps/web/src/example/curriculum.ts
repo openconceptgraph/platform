@@ -1,6 +1,7 @@
 import { type Db, schema } from "@ocg/db";
 import { and, eq } from "drizzle-orm";
-import type { NewBatchItem } from "@/review/create-batch";
+import type { NewBatchItem } from "@/curate/create-batch";
+import { plantLink } from "@/curate/plant";
 
 // A small invented curriculum for trying the workbench: integers, one algebra
 // concept and one from measurement. The wording is ours, written for this
@@ -11,13 +12,28 @@ export const EXAMPLE_SLUG = "xx-example/mathematics";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-/** Creates the example curriculum, or finds it if it is already there. Returns its review items. */
-export async function exampleCurriculum(db: Db): Promise<{ frameworkId: string; batchItems: NewBatchItem[] }> {
+/**
+ * Creates the example curriculum, or finds it if it is already there. Returns
+ * its review items. The curator is recorded as having planted its control.
+ */
+export async function exampleCurriculum(
+  db: Db,
+  curatorId: string,
+): Promise<{ frameworkId: string; batchItems: NewBatchItem[] }> {
   const [existing] = await db.select().from(schema.framework).where(eq(schema.framework.slug, EXAMPLE_SLUG));
   if (existing) {
     return { frameworkId: existing.id, batchItems: await itemsFor(db, existing.id) };
   }
   const frameworkId = await db.transaction((tx) => create(tx));
+  // A planted control: plausible-sounding, and wrong.
+  await plantLink(db, {
+    frameworkId,
+    from: "INT-02",
+    to: "MEA-01",
+    rationale: "Adding integers is usually introduced with measurements such as temperatures and heights.",
+    note: "Converting units of length is not needed to add integers.",
+    plantedBy: curatorId,
+  });
   return { frameworkId, batchItems: await itemsFor(db, frameworkId) };
 }
 
@@ -218,14 +234,6 @@ async function create(tx: Tx) {
     ai.id,
     "Solving x + a = b means subtracting a from both sides, which with negative values is subtracting integers.",
   );
-  // A planted control: plausible-sounding, and wrong.
-  await lnk(
-    "needs",
-    c(int02.id),
-    c(mea01.id),
-    ai.id,
-    "Adding integers is usually introduced with measurements such as temperatures and heights.",
-  );
   await lnk(
     "hinders",
     ["misconception", mis031.id],
@@ -279,12 +287,8 @@ async function itemsFor(db: Db, frameworkId: string): Promise<NewBatchItem[]> {
     { objectKind: "link", objectId: await needsId("INT-03", "INT-02") },
     { objectKind: "misconception", objectId: await misconceptionId("MIS-031") },
     { objectKind: "link", objectId: await needsId("ALG-05", "INT-03") },
-    {
-      objectKind: "link",
-      objectId: await needsId("INT-02", "MEA-01"),
-      controlExpected: "reject",
-      controlNote: "Planted: converting units of length is not needed to add integers.",
-    },
+    // The planted control; the database marks it as one in the batch.
+    { objectKind: "link", objectId: await needsId("INT-02", "MEA-01") },
     { objectKind: "concept", objectId: await conceptId("INT-02") },
     { objectKind: "misconception", objectId: await misconceptionId("MIS-032") },
     { objectKind: "link", objectId: await needsId("INT-03", "INT-04") },

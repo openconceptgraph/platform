@@ -67,6 +67,36 @@ export const batchItem = pgTable(
 );
 
 /**
+ * A planted control: an item written to be wrong (or, rarely, known to be
+ * right), put to reviewers to measure how carefully they judge. Marked for
+ * good: it is never shown as a neighbour, never batched except as a control,
+ * and never released.
+ */
+export const planted = pgTable(
+  "planted",
+  {
+    objectId: uuid("object_id").primaryKey(),
+    objectKind: objectKind("object_kind").notNull(),
+    /** The decision a careful reviewer reaches. */
+    expected: decision("expected").notNull().default("reject"),
+    /** Why it is wrong, for the curator; never shown to reviewers. */
+    note: text("note").notNull(),
+    plantedBy: text("planted_by")
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "planted_object_fk",
+      columns: [t.objectId, t.objectKind],
+      foreignColumns: [baseObject.id, baseObject.kind],
+    }),
+    check("planted_note_present", sql`btrim(${t.note}) <> ''`),
+  ],
+);
+
+/**
  * One reviewer's decision on one revision of one object, with the evidence
  * they saw. The database fills in the time and the control flag, refuses a
  * stale revision, and refuses any update or delete.

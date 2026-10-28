@@ -141,21 +141,23 @@ describe("needs never loops", () => {
       let firstMayCommit!: () => void;
       const commitFirst = new Promise<void>((resolve) => (firstMayCommit = resolve));
 
-      // The first writer adds a → b and holds its transaction open.
+      // The first writer adds a → b and holds its transaction open while the
+      // second adds b → a. The check runs at commit: whichever commits second
+      // sees the other's link and is refused.
       const first = db.transaction(async (tx) => {
         await addNeeds(tx, source.id, a.id, b.id);
         releaseFirst();
         await commitFirst;
       });
       await firstInserted;
-
-      // The second adds b → a while the first is still open; it must wait, then fail.
-      const second = pgError(other.transaction((tx) => addNeeds(tx, source.id, b.id, a.id)));
+      const second = other.transaction((tx) => addNeeds(tx, source.id, b.id, a.id));
       await new Promise((resolve) => setTimeout(resolve, 200));
       firstMayCommit();
 
-      await first;
-      expect((await second).message).toMatch(/would make a loop/);
+      const outcomes = await Promise.allSettled([first, second]);
+      const refused = outcomes.filter((o) => o.status === "rejected") as PromiseRejectedResult[];
+      expect(refused).toHaveLength(1);
+      expect(String(refused[0]!.reason)).toMatch(/would make a loop/);
     } finally {
       await other.close();
     }

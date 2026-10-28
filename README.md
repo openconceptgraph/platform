@@ -53,6 +53,27 @@ pnpm seed:example --reviewer you@example.org
 pnpm dev                     # then sign in at http://localhost:3000
 ```
 
+## Making batches
+
+A curator puts items to reviewers in batches, from the command line:
+
+```sh
+# Preview, then create, a batch of concept cards and prerequisite links for a mathematical reviewer
+pnpm batch create --framework za-caps/mathematics --reviewer ada@example.org \
+  --screens card,prerequisite --topics 1.3 --size 20 --controls 2 --curator you@example.org --dry-run
+
+# Write planted controls: plausible, and wrong
+pnpm batch plant-link --framework za-caps/mathematics --from INT-02 --to MEA-01 \
+  --why "<the rationale reviewers see>" --note "<why it is wrong>" --curator you@example.org
+pnpm batch plant-mistake --framework za-caps/mathematics --statement "<the wrong rule>" \
+  --hinders INT-03 --why "..." --note "..." --curator you@example.org
+
+pnpm batch list              # progress, and controls caught or missed
+pnpm batch close <batch id>
+```
+
+A batch takes the next items ready for review in curriculum order: still proposed, not yet decided on their current revision, not waiting in another open batch. Planted controls the reviewer has not seen before are placed at random among them, never first or last. Planted items are marked for good: they never appear among another item's neighbours, go to reviewers only as controls, are left out of the check that `needs` never loops, and never reach a release.
+
 ## Checks
 
 ```sh
@@ -71,7 +92,7 @@ These hold whatever the application does, and the tests check each one.
 - **IDs are permanent.** Every base object gets a UUID v4 in a single registry, so any ID resolves whatever its kind. Nothing is deleted and no ID changes or is reused. An object is retired by marking it and linking it to its replacement.
 - **Changes are counted.** Each change to an object's content raises its revision. If the object had been reviewed, the change returns it to `proposed`, because what was reviewed is no longer what is stored.
 - **Every link has a source and a status,** and joins only the kinds its type allows (for example, `needs` runs from concept to concept).
-- **`needs` never loops,** even when two writers race.
+- **`needs` never loops,** even when two writers race. Planted controls are not part of the graph, so they never count.
 - **A review status follows judgements and nothing else.** Counting each reviewer's latest judgement on the current revision, an object is confirmed when every one confirms, rejected when every one rejects, and otherwise stays proposed: a change was asked for, or reviewers disagree. So one reviewer's confirmation is enough when nobody objects. Judgements on planted controls never count, so a planted item can never be confirmed into a release.
 - **The judgement record is append-only.** A judgement must be on the object's current revision and must carry a reason. The database sets its time and its control flag. Only a batch's assigned reviewer may judge in it. A change of mind is a new judgement that supersedes the old one and says why.
 

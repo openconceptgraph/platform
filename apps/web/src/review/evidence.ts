@@ -1,5 +1,5 @@
 import { type Db, type LangString, type ObjectKind, type ReviewStatus, schema } from "@ocg/db";
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { type AnyColumn, and, asc, eq, inArray, ne, notExists, sql } from "drizzle-orm";
 import { publicNameOf } from "./profile";
 import type { ScreenType } from "./reasons";
 
@@ -8,7 +8,8 @@ import type { ScreenType } from "./reasons";
 // says exactly what the reviewer saw. Deliberately absent: the AI's agreement
 // score and other reviewers' decisions, which would anchor the reviewer.
 
-const { concept, document, educationLevel, family, level, link, misconception, node, source, statement } = schema;
+const { concept, document, educationLevel, family, level, link, misconception, node, planted, source, statement } =
+  schema;
 
 export interface ObjectRef {
   id: string;
@@ -124,13 +125,21 @@ async function prerequisiteEvidence(db: Db, linkId: string): Promise<Prerequisit
     .select({ code: concept.humanCode, title: concept.title, status: link.status })
     .from(link)
     .innerJoin(concept, eq(concept.id, link.toId))
-    .where(and(eq(link.linkType, "needs"), eq(link.fromId, l.fromId), ne(link.id, l.id), ne(link.status, "rejected")))
+    .where(
+      and(
+        eq(link.linkType, "needs"),
+        eq(link.fromId, l.fromId),
+        ne(link.id, l.id),
+        ne(link.status, "rejected"),
+        notPlanted(db, link.id),
+      ),
+    )
     .orderBy(asc(concept.humanCode));
   const neededBy = await db
     .select({ code: concept.humanCode, title: concept.title, status: link.status })
     .from(link)
     .innerJoin(concept, eq(concept.id, link.fromId))
-    .where(and(eq(link.linkType, "needs"), eq(link.toId, l.fromId), ne(link.status, "rejected")))
+    .where(and(eq(link.linkType, "needs"), eq(link.toId, l.fromId), ne(link.status, "rejected"), notPlanted(db, link.id)))
     .orderBy(asc(concept.humanCode));
 
   return {
@@ -182,6 +191,7 @@ async function cardEvidence(db: Db, conceptId: string): Promise<CardEvidence> {
             eq(link.toId, partOf.familyId),
             ne(link.fromId, c.id),
             ne(link.status, "rejected"),
+            notPlanted(db, concept.id),
           ),
         )
         .orderBy(asc(concept.humanCode))
@@ -190,7 +200,14 @@ async function cardEvidence(db: Db, conceptId: string): Promise<CardEvidence> {
     .select({ code: misconception.humanCode, title: misconception.statement, status: link.status })
     .from(link)
     .innerJoin(misconception, eq(misconception.id, link.fromId))
-    .where(and(eq(link.linkType, "hinders"), eq(link.toId, c.id), ne(link.status, "rejected")))
+    .where(
+      and(
+        eq(link.linkType, "hinders"),
+        eq(link.toId, c.id),
+        ne(link.status, "rejected"),
+        notPlanted(db, misconception.id),
+      ),
+    )
     .orderBy(asc(misconception.humanCode));
   const levels = await db
     .select({ title: level.title })
@@ -388,6 +405,14 @@ async function documentation(db: Db, sourceId: string): Promise<MistakeEvidence[
 
 function related(row: { code: string; title: LangString; status: ReviewStatus }): Related {
   return { code: row.code, title: pick(row.title), status: row.status };
+}
+
+/**
+ * Excludes planted controls. They are put to reviewers on their own screens
+ * only; shown as neighbours they would give themselves away and mislead.
+ */
+function notPlanted(db: Db, id: AnyColumn) {
+  return notExists(db.select({ one: sql`1` }).from(planted).where(eq(planted.objectId, id)));
 }
 
 /** Text in the reviewer's language: English for now, else whatever there is. */
