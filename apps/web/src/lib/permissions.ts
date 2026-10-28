@@ -3,8 +3,9 @@ import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
 
 /**
  * What each role may do. Reviewers judge; curators prepare the base and put it
- * to review in batches; admins manage accounts and cut releases. One person
- * may hold several roles.
+ * to review in batches; admins manage accounts, cut releases and, when they
+ * choose to, test a reviewer with planted controls. One person may hold
+ * several roles.
  */
 const statements = {
   ...defaultStatements,
@@ -12,6 +13,8 @@ const statements = {
   base: ["edit", "retire"],
   batch: ["create", "close"],
   release: ["create"],
+  /** Planting controls and putting them in batches: optional, for calibrating new reviewers. */
+  control: ["plant"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -19,7 +22,7 @@ export const ac = createAccessControl(statements);
 export const roles = {
   reviewer: ac.newRole({ judgement: ["create"] }),
   curator: ac.newRole({ base: ["edit", "retire"], batch: ["create", "close"] }),
-  admin: ac.newRole({ ...adminAc.statements, release: ["create"] }),
+  admin: ac.newRole({ ...adminAc.statements, release: ["create"], control: ["plant"] }),
 };
 
 export type Role = keyof typeof roles;

@@ -1,19 +1,22 @@
 // The curator's batch tool.
 //
 //   pnpm batch create --framework <slug> --reviewer <email> --screens card,prerequisite
-//                     [--topics 1.3,2.4] [--size 20] [--controls 2] [--title "..."]
-//                     [--curator <email>] [--dry-run]
+//                     [--topics 1.3,2.4] [--size 20] [--title "..."] --by <email> [--dry-run]
+//                     [--controls 2]                                   (admin only)
 //   pnpm batch plant-link --framework <slug> --from INT-02 --to MEA-01
-//                     --why "<the rationale reviewers see>" --note "<why it is wrong>" --curator <email>
+//                     --why "<the rationale reviewers see>" --note "<why it is wrong>" --by <email>
 //   pnpm batch plant-mistake --framework <slug> --statement "<the wrong rule>" [--example "..."]
-//                     --hinders INT-03 --why "..." --note "..." --curator <email>
+//                     --hinders INT-03 --why "..." --note "..." --by <email>
 //   pnpm batch list [--reviewer <email>]
 //   pnpm batch close <batch id>
 //
 // Screens: card (concept cards), prerequisite (needs links), mistake (typical
 // mistakes). A mathematical reviewer gets cards and prerequisites; a classroom
-// reviewer gets mistakes. Creating a batch and planting a control both record
-// the curator who did it; --dry-run previews a batch without one.
+// reviewer gets mistakes. --by names who is acting, and is recorded.
+//
+// Planted controls are optional, for an admin to test a new reviewer's first
+// batches and then stop: only an admin may plant one or put controls in a
+// batch, and batches carry none unless --controls asks for them.
 import { parseArgs } from "node:util";
 import { type Db, schema } from "@ocg/db";
 import { eq } from "drizzle-orm";
@@ -30,7 +33,7 @@ const { values: o, positionals } = parseArgs({
   options: {
     framework: { type: "string" },
     reviewer: { type: "string" },
-    curator: { type: "string" },
+    by: { type: "string" },
     screens: { type: "string" },
     topics: { type: "string" },
     size: { type: "string" },
@@ -80,9 +83,13 @@ try {
 async function create() {
   const frameworkId = await framework(db);
   const reviewer = await person(db, need("reviewer"), { judgement: ["create"] }, "reviewer");
-  const curator = o.curator ? await person(db, o.curator, { batch: ["create"] }, "curator") : undefined;
-  if (!o["dry-run"] && !curator) {
-    throw new Error("--curator <email> is required to create a batch (or use --dry-run to preview)");
+  const controls = o.controls ? Number(o.controls) : 0;
+  const by = o.by ? await person(db, o.by, { batch: ["create"] }, "curator") : undefined;
+  if (!o["dry-run"] && !by) {
+    throw new Error("--by <email> is required to create a batch (or use --dry-run to preview)");
+  }
+  if (controls > 0 && !(by && can(by.role, { control: ["plant"] }))) {
+    throw new Error("only an admin may put planted controls in a batch: --by must be an admin's account");
   }
   const screens = need("screens").split(",").map((s) => s.trim()) as ScreenType[];
   const unknown = screens.filter((s) => !screenNames.includes(s));
@@ -94,7 +101,7 @@ async function create() {
     screens,
     topics: o.topics?.split(",").map((t) => t.trim()),
     size: o.size ? Number(o.size) : undefined,
-    controls: o.controls ? Number(o.controls) : undefined,
+    controls,
   });
   if (items.length === 0) {
     console.log("Nothing is ready for review on those screens and topics.");
@@ -104,34 +111,34 @@ async function create() {
     console.log(`${String(i + 1).padStart(3)}  ${item.screen.padEnd(12)} ${item.isControl ? "[control] " : ""}${item.label}`),
   );
   if (controlsShort > 0) {
-    console.log(`\nShort of ${controlsShort} planted control(s) this reviewer has not seen; plant more.`);
+    console.log(`\nShort of ${controlsShort} planted control(s) this reviewer has not seen; an admin can plant more.`);
   }
   if (o["dry-run"]) {
     console.log("\nDry run: no batch created.");
     return;
   }
   const title = o.title ?? `${screens.join(" and ")} · ${new Date().toISOString().slice(0, 10)}`;
-  const batch = await createBatch(db, { title, assignedTo: reviewer.id, createdBy: curator!.id, items });
+  const batch = await createBatch(db, { title, assignedTo: reviewer.id, createdBy: by!.id, items });
   console.log(`\nBatch "${batch.title}" (${batch.id}) with ${items.length} items given to ${reviewer.name}.`);
 }
 
 async function plantOneLink() {
   const frameworkId = await framework(db);
-  const curator = await person(db, need("curator"), { batch: ["create"] }, "curator");
+  const admin = await person(db, need("by"), { control: ["plant"] }, "admin");
   const planted = await plantLink(db, {
     frameworkId,
     from: need("from"),
     to: need("to"),
     rationale: need("why"),
     note: need("note"),
-    plantedBy: curator.id,
+    plantedBy: admin.id,
   });
   console.log(`Planted "${o.from} needs ${o.to}" (${planted.id}).`);
 }
 
 async function plantOneMistake() {
   const frameworkId = await framework(db);
-  const curator = await person(db, need("curator"), { batch: ["create"] }, "curator");
+  const admin = await person(db, need("by"), { control: ["plant"] }, "admin");
   const planted = await plantMistake(db, {
     frameworkId,
     statement: need("statement"),
@@ -139,7 +146,7 @@ async function plantOneMistake() {
     hinders: need("hinders"),
     rationale: need("why"),
     note: need("note"),
-    plantedBy: curator.id,
+    plantedBy: admin.id,
   });
   console.log(`Planted ${planted.humanCode}: "${o.statement}" (${planted.id}).`);
 }
@@ -189,6 +196,8 @@ async function framework(db: Db) {
 
 async function person(db: Db, email: string, permission: Parameters<typeof can>[1], role: string) {
   const user = await userByEmail(db, email);
-  if (!user || !can(user.role, permission)) throw new Error(`${email} is not a ${role}'s account`);
+  if (!user || !can(user.role, permission)) {
+    throw new Error(`${email} is not ${/^[aeiou]/.test(role) ? "an" : "a"} ${role}'s account`);
+  }
   return user;
 }

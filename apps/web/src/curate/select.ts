@@ -69,9 +69,10 @@ export async function candidates(
 }
 
 /**
- * A batch for one reviewer: up to `size` items, of which `controls` are
- * planted ones this reviewer has not seen, placed at random among the real
- * items but never first or last.
+ * A batch for one reviewer: up to `size` items. Controls are optional, chosen
+ * by an admin to calibrate a new reviewer: `controls` of them, planted items
+ * this reviewer has not seen, placed at random among the real items but never
+ * first or last. None by default.
  */
 export async function planBatch(
   db: Db,
@@ -86,7 +87,7 @@ export async function planBatch(
   },
 ): Promise<{ items: PlannedItem[]; controlsShort: number }> {
   const size = q.size ?? 20;
-  const wanted = Math.min(q.controls ?? 2, size);
+  const wanted = Math.min(q.controls ?? 0, size);
   const random = q.random ?? Math.random;
 
   const plants = shuffle(await unseenPlants(db, q), random).slice(0, wanted);

@@ -59,13 +59,14 @@ describe("roles", () => {
     expect(await can("reviewer", { user: ["create"] })).toBe(false);
   });
 
-  it("let curators edit the base and run batches, but not judge", async () => {
+  it("let curators edit the base and run batches, but not judge or plant controls", async () => {
     expect(await can("curator", { base: ["edit", "retire"], batch: ["create", "close"] })).toBe(true);
     expect(await can("curator", { judgement: ["create"] })).toBe(false);
+    expect(await can("curator", { control: ["plant"] })).toBe(false);
   });
 
-  it("let admins manage accounts and cut releases", async () => {
-    expect(await can("admin", { user: ["create", "set-role"], release: ["create"] })).toBe(true);
+  it("let admins manage accounts, cut releases and plant controls", async () => {
+    expect(await can("admin", { user: ["create", "set-role"], release: ["create"], control: ["plant"] })).toBe(true);
     expect(await can("admin", { judgement: ["create"] })).toBe(false);
   });
 });

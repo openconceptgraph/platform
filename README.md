@@ -29,7 +29,7 @@ pnpm user:create --email you@example.org --name "Your Name" --role admin
 pnpm dev
 ```
 
-Accounts are never self-made. Every judgement is attributed to a named person, so an admin creates each account. The roles are `reviewer` (records judgements), `curator` (edits the base and runs review batches) and `admin` (manages accounts and cuts releases). One person may hold several roles.
+Accounts are never self-made. Every judgement is attributed to a known person, so an admin creates each account. The roles are `reviewer` (records judgements), `curator` (edits the base and runs review batches) and `admin` (manages accounts, cuts releases, and may test new reviewers with planted controls). One person may hold several roles.
 
 ## The review workbench
 
@@ -41,7 +41,7 @@ A reviewer signs in, opens a batch and decides each item on a screen of its own.
 
 A confirmation needs a reason from a short list; a rejection or a request for a change needs the reviewer's own words. The record keeps exactly what the screen showed and how long the reviewer spent on it. Deciding a concept card also decides the curriculum lines it cites and its family, and deciding a mistake also decides the concepts it gets in the way of. A reviewer may change their mind, giving a reason; the earlier decision stays on record.
 
-Reviewers do not see the AI's agreement score or other reviewers' decisions, so that their judgement is their own. Planted controls look like any other item.
+Reviewers do not see the AI's agreement score or other reviewers' decisions, so that their judgement is their own.
 
 Before their first review, each reviewer chooses a public name, which may be their own name or one that does not identify them, and an optional public line about themselves. Anything other people see, in the workbench now and in published data later, shows only that public name. The name on the account stays private, but every judgement remains attributable to a known person.
 
@@ -55,24 +55,32 @@ pnpm dev                     # then sign in at http://localhost:3000
 
 ## Making batches
 
-A curator puts items to reviewers in batches, from the command line:
+A curator puts items to reviewers in batches, from the command line. `--by` names who is acting, and is recorded.
 
 ```sh
 # Preview, then create, a batch of concept cards and prerequisite links for a mathematical reviewer
 pnpm batch create --framework za-caps/mathematics --reviewer ada@example.org \
-  --screens card,prerequisite --topics 1.3 --size 20 --controls 2 --curator you@example.org --dry-run
+  --screens card,prerequisite --topics 1.3 --size 20 --by you@example.org --dry-run
 
-# Write planted controls: plausible, and wrong
-pnpm batch plant-link --framework za-caps/mathematics --from INT-02 --to MEA-01 \
-  --why "<the rationale reviewers see>" --note "<why it is wrong>" --curator you@example.org
-pnpm batch plant-mistake --framework za-caps/mathematics --statement "<the wrong rule>" \
-  --hinders INT-03 --why "..." --note "..." --curator you@example.org
-
-pnpm batch list              # progress, and controls caught or missed
+pnpm batch list              # progress, minutes spent, and controls caught or missed
 pnpm batch close <batch id>
 ```
 
-A batch takes the next items ready for review in curriculum order: still proposed, not yet decided on their current revision, not waiting in another open batch. Planted controls the reviewer has not seen before are placed at random among them, never first or last. Planted items are marked for good: they never appear among another item's neighbours, go to reviewers only as controls, are left out of the check that `needs` never loops, and never reach a release.
+A batch takes the next items ready for review in curriculum order: still proposed, not yet decided on their current revision, not waiting in another open batch.
+
+### Planted controls (optional, admins only)
+
+To test a new reviewer, an admin can plant items that are plausible and wrong, and put some in that reviewer's first batches. Batches carry none unless asked, and the practice can stop once a reviewer is trusted.
+
+```sh
+pnpm batch plant-link --framework za-caps/mathematics --from INT-02 --to MEA-01 \
+  --why "<the rationale reviewers see>" --note "<why it is wrong>" --by admin@example.org
+pnpm batch plant-mistake --framework za-caps/mathematics --statement "<the wrong rule>" \
+  --hinders INT-03 --why "..." --note "..." --by admin@example.org
+pnpm batch create ... --controls 2 --by admin@example.org
+```
+
+Controls the reviewer has not seen before are placed at random among the real items, never first or last, and look like any other item. Planted items are marked for good: they never appear among another item's neighbours, go to reviewers only as controls, are left out of the check that `needs` never loops, and never reach a release.
 
 ## Checks
 
