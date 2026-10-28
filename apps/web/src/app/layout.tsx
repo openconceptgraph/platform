@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
+import { SourceLink } from "@/components/SourceLink";
 import "./globals.css";
 
 // Atkinson Hyperlegible Next (Braille Institute, SIL OFL 1.1): keeps 1, l and I
@@ -22,7 +23,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={body.variable}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <SourceLink />
+      </body>
     </html>
   );
 }

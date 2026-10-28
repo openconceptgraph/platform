@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { config } from "dotenv";
 import type { NextConfig } from "next";
@@ -14,8 +15,25 @@ const extraHosts = (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? "")
   .filter(Boolean)
   .map((origin) => new URL(origin).host);
 
+// The commit this build comes from, for the source link on every page (AGPL-3.0
+// section 13). Vercel names it; elsewhere git does. Empty if neither can.
+function sourceCommit(): string {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) {
+    return process.env.VERCEL_GIT_COMMIT_SHA;
+  }
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+}
+
 const nextConfig: NextConfig = {
   transpilePackages: ["@ocg/db"],
+  env: {
+    NEXT_PUBLIC_SOURCE_COMMIT: sourceCommit(),
+    NEXT_PUBLIC_SOURCE_REPOSITORY: process.env.SOURCE_REPOSITORY_URL ?? "",
+  },
   allowedDevOrigins: extraHosts.map((host) => host.split(":")[0]!),
   experimental: {
     serverActions: { allowedOrigins: extraHosts },

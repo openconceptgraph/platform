@@ -1,7 +1,7 @@
 {
   "name": "ocg-platform",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-only",
   "packageManager": "pnpm@12.11.2",
   "engines": {
     "node": ">=22.12"

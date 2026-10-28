@@ -106,8 +106,16 @@ These hold whatever the application does, and the tests check each one.
 
 ## Contributing
 
-Sign off your commits (`git commit -s`) to certify the [Developer Certificate of Origin](https://developercertificate.org/).
+Sign off your commits (`git commit -s`) to certify the [Developer Certificate of Origin](https://developercertificate.org/). Contributions are accepted under the same licence.
 
 ## Licence
 
-Apache-2.0. See [LICENSE](LICENSE).
+Copyright 2026 the OpenConceptGraph steward.
+
+`AGPL-3.0-only`: the GNU Affero General Public License, version 3. See [LICENSE](LICENSE). You may use, change and host this software. If you run a modified version for other people over a network, you must offer them its source.
+
+Every page of the app links to the source of the commit it was built from. If you run a changed version, set `SOURCE_REPOSITORY_URL` so that the link points to your source.
+
+Versions of this repository up to and including commit `7feff9e` (28 October 2026) were published under the Apache License 2.0, and remain available under it.
+
+The bundled Atkinson Hyperlegible Next fonts are under the SIL Open Font License 1.1 ([`apps/web/src/app/fonts/OFL-atkinson-hyperlegible.txt`](apps/web/src/app/fonts/OFL-atkinson-hyperlegible.txt)).
