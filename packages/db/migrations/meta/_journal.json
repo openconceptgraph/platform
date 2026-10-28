@@ -64,6 +64,13 @@
       "when": 1793207068989,
       "tag": "0008_planted_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793215518834,
+      "tag": "0009_rate_limit",
+      "breakpoints": true
     }
   ]
 }

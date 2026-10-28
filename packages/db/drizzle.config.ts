@@ -4,7 +4,9 @@ import { parseDatabaseUrl } from "./src/connection";
 
 config({ path: "../../.env.local", quiet: true });
 
-const db = parseDatabaseUrl(process.env.DATABASE_URL ?? "postgres://localhost/ocg");
+// Migrations need a direct connection, not a pooled one: Neon gives both, and
+// DATABASE_URL_UNPOOLED is the direct one where it is set.
+const db = parseDatabaseUrl(process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || "postgres://localhost/ocg");
 
 export default defineConfig({
   schema: "./src/schema/index.ts",

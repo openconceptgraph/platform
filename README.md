@@ -102,6 +102,10 @@ pnpm batch create ... --controls 2 --by admin@example.org
 
 Controls the reviewer has not seen before are placed at random among the real items, never first or last, and look like any other item. Planted items are marked for good: they never appear among another item's neighbours, go to reviewers only as controls, are left out of the check that `needs` never loops, and never reach a release.
 
+## Deploying
+
+The workbench runs on Vercel with Neon Postgres, both in Frankfurt. [`docs/deploy.md`](docs/deploy.md) has the settings, the environment variables, how to run a command against production, and the order of a release (migrations first).
+
 ## Checks
 
 ```sh

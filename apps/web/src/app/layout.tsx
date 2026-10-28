@@ -18,6 +18,8 @@ const body = localFont({
 export const metadata: Metadata = {
   title: "OpenConceptGraph",
   description: "Open concept graphs of the world's curricula, built for AI-assisted learning.",
+  // The workbench is for signed-in reviewers; what it produces is published elsewhere.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

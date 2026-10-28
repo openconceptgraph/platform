@@ -11,6 +11,8 @@ export function createDb(databaseUrl: string, options: { max?: number } = {}) {
     // Keeps queries compatible with Neon's pooled (PgBouncer) endpoint.
     prepare: false,
     max: options.max ?? 10,
+    // Let go of idle connections, which a frozen serverless instance would otherwise hold.
+    idle_timeout: 20,
     onnotice: () => {},
   });
   return Object.assign(drizzle(client, { schema }), { close: () => client.end() });

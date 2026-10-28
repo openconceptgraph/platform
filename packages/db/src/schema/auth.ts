@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // Better Auth's tables, with the admin plugin's fields. Named accounts only:
 // a reviewer's judgements are attributed to a real person, so accounts are
@@ -71,3 +71,15 @@ export const verification = pgTable(
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
+
+/**
+ * Better Auth's rate-limit counters. They are kept in the database because
+ * serverless instances share no memory: counted in each instance alone, a
+ * run of password guesses could spread across them.
+ */
+export const rateLimit = pgTable("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
