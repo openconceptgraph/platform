@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local Postgres cluster (scripts/local-pg.sh)
+.local/
+
+# Environment: only the example is committed
+.env*
+!.env.example

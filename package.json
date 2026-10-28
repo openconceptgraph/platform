@@ -1,0 +1,25 @@
+{
+  "name": "ocg-platform",
+  "private": true,
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test --concurrency=1",
+    "db:generate": "pnpm --filter @ocg/db run generate",
+    "db:migrate": "pnpm --filter @ocg/db run migrate",
+    "db:check": "pnpm --filter @ocg/db run check",
+    "pg": "scripts/local-pg.sh",
+    "user:create": "pnpm --filter @ocg/web run user:create"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.10",
+    "typescript": "~6.0.3"
+  }
+}
