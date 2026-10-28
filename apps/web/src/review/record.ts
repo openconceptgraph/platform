@@ -82,8 +82,15 @@ export async function recordDecision(
       return { ok: true, batchId, objectId: evidence.primary.id } as const;
     });
   } catch (error) {
-    if (/is now at revision/.test(String((error as { cause?: unknown }).cause ?? error))) {
+    const message = String((error as { cause?: unknown }).cause ?? error);
+    if (/is now at revision/.test(message)) {
       return { ok: false, error: "This item changed while you were looking at it. Please look again." };
+    }
+    if (/would make a loop/.test(message)) {
+      return {
+        ok: false,
+        error: "Confirming this would make a loop of prerequisites, so it was not recorded. Please tell the curator.",
+      };
     }
     throw error;
   }

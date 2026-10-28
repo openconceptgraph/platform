@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type Db, schema } from "@ocg/db";
 import { freshTestDb } from "@ocg/db/testing";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { exampleCurriculum } from "@/example/curriculum";
 import { itemsOf, nextUndecided } from "@/review/batches";
@@ -124,6 +124,15 @@ describe("recording a decision", () => {
     expect(primary).toMatchObject({ objectId: evidence.primary.id, batchId: batch.id, timeSpentMs: 75_000 });
     expect(primary.evidence).toEqual(evidence);
     expect(rows.filter((r) => r.coveredById === primary.id)).toHaveLength(4);
+
+    // One reviewer confirming, with nobody objecting, confirms the card and what it covers.
+    const [card] = await db.select().from(schema.concept).where(eq(schema.concept.id, evidence.primary.id));
+    expect(card!.status).toBe("confirmed");
+    const covered = await db
+      .select({ status: schema.link.status })
+      .from(schema.link)
+      .where(inArray(schema.link.id, evidence.covered.map((c) => c.id)));
+    expect(covered.map((c) => c.status)).toEqual(["confirmed", "confirmed", "confirmed", "confirmed"]);
   });
 
   it("needs a listed reason to confirm and written words to reject", async () => {
@@ -220,6 +229,9 @@ describe("recording a decision", () => {
       .from(schema.judgement)
       .where(and(eq(schema.judgement.reviewerId, reviewer.id), isNull(schema.judgement.coveredById)));
     expect(j!.isControl).toBe(true);
+    // A control measures the reviewer; it never changes the base.
+    const [planted] = await db.select().from(schema.link).where(eq(schema.link.id, evidence.primary.id));
+    expect(planted!.status).toBe("proposed");
   });
 });
 

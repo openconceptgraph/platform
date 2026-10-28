@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Db } from "../src";
+import { sql } from "drizzle-orm";
+import type { Db, ReviewStatus } from "../src";
 import { schema } from "../src";
 
 // Small builders for the suites. The curriculum here is invented: the tests
@@ -77,4 +78,15 @@ export async function pgError(promise: Promise<unknown>): Promise<{ code?: strin
     return e as { code?: string; message: string };
   }
   throw new Error("expected the query to fail, and it succeeded");
+}
+
+/**
+ * Sets a review status directly, as the judgement trigger does. Only tests do
+ * this: everywhere else a status follows judgements and cannot be set.
+ */
+export function setStatus(db: Db, table: "concept" | "link", id: string, status: ReviewStatus) {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('ocg.deriving_status', 'on', true)`);
+    await tx.execute(sql`update ${sql.identifier(table)} set status = ${status} where id = ${id}`);
+  });
 }

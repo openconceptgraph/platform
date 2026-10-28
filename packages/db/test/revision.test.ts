@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Db, schema } from "../src";
 import { freshTestDb } from "../src/testing";
-import { addConcept, addFramework, pgError } from "./fixtures";
+import { addConcept, addFramework, pgError, setStatus } from "./fixtures";
 
 let db: Db;
 beforeAll(async () => {
@@ -33,11 +33,8 @@ describe("revisions", () => {
     const fw = await addFramework(db);
     const c = await addConcept(db, fw.id);
 
-    const [confirmed] = await db
-      .update(concepts)
-      .set({ status: "confirmed" })
-      .where(eq(concepts.id, c.id))
-      .returning();
+    await setStatus(db, "concept", c.id, "confirmed");
+    const [confirmed] = await db.select().from(concepts).where(eq(concepts.id, c.id));
     expect(confirmed).toMatchObject({ revision: 1, status: "confirmed" });
 
     const [same] = await db.update(concepts).set({ title: c.title }).where(eq(concepts.id, c.id)).returning();
@@ -47,7 +44,7 @@ describe("revisions", () => {
   it("sends changed content back to review", async () => {
     const fw = await addFramework(db);
     const c = await addConcept(db, fw.id, "Subtract integers");
-    await db.update(concepts).set({ status: "confirmed" }).where(eq(concepts.id, c.id));
+    await setStatus(db, "concept", c.id, "confirmed");
 
     // Even if the caller tries to keep it confirmed in the same statement.
     const [edited] = await db

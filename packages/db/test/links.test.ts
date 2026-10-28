@@ -1,8 +1,7 @@
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db, schema } from "../src";
 import { freshTestDb } from "../src/testing";
-import { addAiSource, addConcept, addFramework, addNeeds, pgError } from "./fixtures";
+import { addAiSource, addConcept, addFramework, addNeeds, pgError, setStatus } from "./fixtures";
 
 let db: Db;
 beforeAll(async () => {
@@ -101,7 +100,7 @@ describe("links", () => {
     expect((await pgError(partOf(fams[1]!.id))).code).toBe("23505");
 
     // Once the first is rejected, a second may be proposed.
-    await db.update(schema.link).set({ status: "rejected" }).where(eq(schema.link.id, first!.id));
+    await setStatus(db, "link", first!.id, "rejected");
     await expect(partOf(fams[1]!.id)).resolves.toHaveLength(1);
   });
 });
@@ -125,11 +124,11 @@ describe("needs never loops", () => {
   it("ignores rejected links, and checks again if one is revived", async () => {
     const { source, a, b } = await setup();
     const ab = await addNeeds(db, source.id, a.id, b.id);
-    await db.update(schema.link).set({ status: "rejected" }).where(eq(schema.link.id, ab.id));
+    await setStatus(db, "link", ab.id, "rejected");
 
     await addNeeds(db, source.id, b.id, a.id); // fine: a → b is rejected
 
-    const err = await pgError(db.update(schema.link).set({ status: "proposed" }).where(eq(schema.link.id, ab.id)));
+    const err = await pgError(setStatus(db, "link", ab.id, "proposed"));
     expect(err.message).toMatch(/would make a loop/);
   });
 

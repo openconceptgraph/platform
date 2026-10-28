@@ -4,8 +4,8 @@ import type { NewBatchItem } from "@/review/create-batch";
 
 // A small invented curriculum for trying the workbench: integers, one algebra
 // concept and one from measurement. The wording is ours, written for this
-// example; it quotes no real curriculum. Statuses are set directly here only
-// because this is example data; in a real base they come from judgements.
+// example; it quotes no real curriculum. Everything starts as proposed: a
+// status changes only through reviewers' judgements.
 
 export const EXAMPLE_SLUG = "xx-example/mathematics";
 
@@ -196,8 +196,7 @@ async function create(tx: Tx) {
     await lnk("part-of", c(k.id), ["family", f.id], ai.id);
   }
 
-  const ordered = await lnk("needs", c(int02.id), c(int01.id), ai.id, "Adding integers is done by moving along a number line.");
-  await tx.update(schema.link).set({ status: "confirmed" }).where(eq(schema.link.id, ordered.id));
+  await lnk("needs", c(int02.id), c(int01.id), ai.id, "Adding integers is done by moving along a number line.");
   await lnk(
     "needs",
     c(int03.id),

@@ -36,6 +36,13 @@
       "when": 1793205004299,
       "tag": "0004_review_assignment_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793206350447,
+      "tag": "0005_status_follows_judgements",
+      "breakpoints": true
     }
   ]
 }
