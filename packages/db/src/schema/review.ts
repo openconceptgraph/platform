@@ -1,0 +1,112 @@
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
+import { user } from "./auth";
+import { baseObject, objectKind } from "./registry";
+
+// Review: the judgement record is the product (ADR-017). It is append-only;
+// a change of mind is a new record that supersedes the old one.
+
+export const decision = pgEnum("decision", ["confirm", "reject", "needs-change"]);
+export type Decision = (typeof decision.enumValues)[number];
+
+/** A set of objects put to reviewers together, with planted controls among them. */
+export const batch = pgTable("batch", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => user.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+});
+
+export const batchItem = pgTable(
+  "batch_item",
+  {
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => batch.id),
+    objectId: uuid("object_id").notNull(),
+    objectKind: objectKind("object_kind").notNull(),
+    /** Set for a planted control: the decision a careful reviewer reaches. */
+    controlExpected: decision("control_expected"),
+    controlNote: text("control_note"),
+    ordinal: integer("ordinal").notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ name: "batch_item_pkey", columns: [t.batchId, t.objectId] }),
+    foreignKey({
+      name: "batch_item_object_fk",
+      columns: [t.objectId, t.objectKind],
+      foreignColumns: [baseObject.id, baseObject.kind],
+    }),
+  ],
+);
+
+/**
+ * One reviewer's decision on one revision of one object, with the evidence
+ * they saw. The database fills in the time and the control flag, refuses a
+ * stale revision, and refuses any update or delete.
+ */
+export const judgement = pgTable(
+  "judgement",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    objectId: uuid("object_id").notNull(),
+    objectKind: objectKind("object_kind").notNull(),
+    objectRevision: integer("object_revision").notNull(),
+    reviewerId: text("reviewer_id")
+      .notNull()
+      .references(() => user.id),
+    decision: decision("decision").notNull(),
+    /** Required to confirm: why it is right, from a fixed list. */
+    reasonCode: text("reason_code"),
+    /** Required to reject or ask for a change: what is wrong, in the reviewer's words. */
+    reason: text("reason"),
+    /** What the reviewer was shown: the object, its sources, its neighbours. */
+    evidence: jsonb("evidence").notNull(),
+    batchId: uuid("batch_id").references(() => batch.id),
+    isControl: boolean("is_control").notNull().default(false),
+    timeSpentMs: integer("time_spent_ms"),
+    /** The same reviewer's earlier judgement on the same object, now replaced. */
+    supersedesId: uuid("supersedes_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "judgement_object_fk",
+      columns: [t.objectId, t.objectKind],
+      foreignColumns: [baseObject.id, baseObject.kind],
+    }),
+    unique("judgement_id_object_reviewer_key").on(t.id, t.objectId, t.reviewerId),
+    foreignKey({
+      name: "judgement_supersedes_fk",
+      columns: [t.supersedesId, t.objectId, t.reviewerId],
+      foreignColumns: [t.id, t.objectId, t.reviewerId],
+    }),
+    unique("judgement_supersedes_once_key").on(t.supersedesId),
+    index("judgement_object_idx").on(t.objectId),
+    index("judgement_reviewer_idx").on(t.reviewerId),
+    index("judgement_batch_idx").on(t.batchId),
+    check(
+      "judgement_reason_given",
+      sql`(${t.decision} = 'confirm' and coalesce(${t.reasonCode}, '') <> '')
+       or (${t.decision} <> 'confirm' and coalesce(trim(${t.reason}), '') <> '')`,
+    ),
+    check("judgement_time_spent_nonnegative", sql`${t.timeSpentMs} >= 0`),
+  ],
+);

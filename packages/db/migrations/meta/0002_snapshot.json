@@ -1,0 +1,2870 @@
+{
+  "id": "e5d1c67c-599f-4760-8bdb-46cc88d97cff",
+  "prevId": "1a29b79e-a3e6-4a5d-a524-4442894fdb2f",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.base_object": {
+      "name": "base_object",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "object_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "retired_at": {
+          "name": "retired_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "base_object_id_kind_key": {
+          "name": "base_object_id_kind_key",
+          "columns": [
+            "id",
+            "kind"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.document": {
+      "name": "document",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "framework_id": {
+          "name": "framework_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "publisher": {
+          "name": "publisher",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued": {
+          "name": "issued",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version_label": {
+          "name": "version_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rights": {
+          "name": "rights",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "document_framework_idx": {
+          "name": "document_framework_idx",
+          "columns": [
+            {
+              "expression": "framework_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "document_id_base_object_id_fk": {
+          "name": "document_id_base_object_id_fk",
+          "tableFrom": "document",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "document_framework_id_framework_id_fk": {
+          "name": "document_framework_id_framework_id_fk",
+          "tableFrom": "document",
+          "columnsFrom": [
+            "framework_id"
+          ],
+          "tableTo": "framework",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "document_title_present": {
+          "name": "document_title_present",
+          "value": "\"document\".\"title\" <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.education_level": {
+      "name": "education_level",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "framework_id": {
+          "name": "framework_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isced_level": {
+          "name": "isced_level",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "education_level_id_base_object_id_fk": {
+          "name": "education_level_id_base_object_id_fk",
+          "tableFrom": "education_level",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "education_level_framework_id_framework_id_fk": {
+          "name": "education_level_framework_id_framework_id_fk",
+          "tableFrom": "education_level",
+          "columnsFrom": [
+            "framework_id"
+          ],
+          "tableTo": "framework",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "education_level_framework_code_key": {
+          "name": "education_level_framework_code_key",
+          "columns": [
+            "framework_id",
+            "code"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "education_level_title_lang": {
+          "name": "education_level_title_lang",
+          "value": "ocg_is_lang_string(\"education_level\".\"title\")"
+        },
+        "education_level_isced_range": {
+          "name": "education_level_isced_range",
+          "value": "\"education_level\".\"isced_level\" between 0 and 8"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.framework": {
+      "name": "framework",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jurisdiction": {
+          "name": "jurisdiction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "publisher": {
+          "name": "publisher",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "node_types": {
+          "name": "node_types",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "framework_id_base_object_id_fk": {
+          "name": "framework_id_base_object_id_fk",
+          "tableFrom": "framework",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "framework_slug_unique": {
+          "name": "framework_slug_unique",
+          "columns": [
+            "slug"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "framework_title_lang": {
+          "name": "framework_title_lang",
+          "value": "ocg_is_lang_string(\"framework\".\"title\")"
+        },
+        "framework_slug_format": {
+          "name": "framework_slug_format",
+          "value": "\"framework\".\"slug\" ~ '^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.node": {
+      "name": "node",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "node_type": {
+          "name": "node_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "human_code": {
+          "name": "human_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "node_parent_idx": {
+          "name": "node_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "node_id_base_object_id_fk": {
+          "name": "node_id_base_object_id_fk",
+          "tableFrom": "node",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "node_document_id_document_id_fk": {
+          "name": "node_document_id_document_id_fk",
+          "tableFrom": "node",
+          "columnsFrom": [
+            "document_id"
+          ],
+          "tableTo": "document",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "node_parent_id_node_id_fk": {
+          "name": "node_parent_id_node_id_fk",
+          "tableFrom": "node",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "tableTo": "node",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "node_id_document_key": {
+          "name": "node_id_document_key",
+          "columns": [
+            "id",
+            "document_id"
+          ],
+          "nullsNotDistinct": false
+        },
+        "node_document_code_key": {
+          "name": "node_document_code_key",
+          "columns": [
+            "document_id",
+            "human_code"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "node_title_present": {
+          "name": "node_title_present",
+          "value": "\"node\".\"title\" <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.placement": {
+      "name": "placement",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "teaching_plan_id": {
+          "name": "teaching_plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_id": {
+          "name": "target_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_kind": {
+          "name": "target_kind",
+          "type": "object_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "education_level_id": {
+          "name": "education_level_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "term": {
+          "name": "term",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "week_start": {
+          "name": "week_start",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "week_end": {
+          "name": "week_end",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hours": {
+          "name": "hours",
+          "type": "numeric(5, 1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "placement_plan_idx": {
+          "name": "placement_plan_idx",
+          "columns": [
+            {
+              "expression": "teaching_plan_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "placement_target_idx": {
+          "name": "placement_target_idx",
+          "columns": [
+            {
+              "expression": "target_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "placement_id_base_object_id_fk": {
+          "name": "placement_id_base_object_id_fk",
+          "tableFrom": "placement",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "placement_teaching_plan_id_teaching_plan_id_fk": {
+          "name": "placement_teaching_plan_id_teaching_plan_id_fk",
+          "tableFrom": "placement",
+          "columnsFrom": [
+            "teaching_plan_id"
+          ],
+          "tableTo": "teaching_plan",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "placement_education_level_id_education_level_id_fk": {
+          "name": "placement_education_level_id_education_level_id_fk",
+          "tableFrom": "placement",
+          "columnsFrom": [
+            "education_level_id"
+          ],
+          "tableTo": "education_level",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "placement_target_fk": {
+          "name": "placement_target_fk",
+          "tableFrom": "placement",
+          "columnsFrom": [
+            "target_id",
+            "target_kind"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "placement_target_kind": {
+          "name": "placement_target_kind",
+          "value": "\"placement\".\"target_kind\" in ('node', 'family', 'concept')"
+        },
+        "placement_weeks_ordered": {
+          "name": "placement_weeks_ordered",
+          "value": "\"placement\".\"week_end\" >= \"placement\".\"week_start\""
+        },
+        "placement_hours_positive": {
+          "name": "placement_hours_positive",
+          "value": "\"placement\".\"hours\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.statement": {
+      "name": "statement",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "node_id": {
+          "name": "node_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "education_level_id": {
+          "name": "education_level_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "statement_type": {
+          "name": "statement_type",
+          "type": "statement_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_revision": {
+          "name": "is_revision",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "human_code": {
+          "name": "human_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "page": {
+          "name": "page",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locator": {
+          "name": "locator",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "statement_document_idx": {
+          "name": "statement_document_idx",
+          "columns": [
+            {
+              "expression": "document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "statement_node_idx": {
+          "name": "statement_node_idx",
+          "columns": [
+            {
+              "expression": "node_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "statement_id_base_object_id_fk": {
+          "name": "statement_id_base_object_id_fk",
+          "tableFrom": "statement",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "statement_document_id_document_id_fk": {
+          "name": "statement_document_id_document_id_fk",
+          "tableFrom": "statement",
+          "columnsFrom": [
+            "document_id"
+          ],
+          "tableTo": "document",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "statement_parent_id_statement_id_fk": {
+          "name": "statement_parent_id_statement_id_fk",
+          "tableFrom": "statement",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "tableTo": "statement",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "statement_education_level_id_education_level_id_fk": {
+          "name": "statement_education_level_id_education_level_id_fk",
+          "tableFrom": "statement",
+          "columnsFrom": [
+            "education_level_id"
+          ],
+          "tableTo": "education_level",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "statement_node_same_document_fk": {
+          "name": "statement_node_same_document_fk",
+          "tableFrom": "statement",
+          "columnsFrom": [
+            "node_id",
+            "document_id"
+          ],
+          "tableTo": "node",
+          "columnsTo": [
+            "id",
+            "document_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "statement_text_present": {
+          "name": "statement_text_present",
+          "value": "\"statement\".\"text\" <> ''"
+        },
+        "statement_page_positive": {
+          "name": "statement_page_positive",
+          "value": "\"statement\".\"page\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.teaching_plan": {
+      "name": "teaching_plan",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "framework_id": {
+          "name": "framework_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "teaching_plan_id_base_object_id_fk": {
+          "name": "teaching_plan_id_base_object_id_fk",
+          "tableFrom": "teaching_plan",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "teaching_plan_framework_id_framework_id_fk": {
+          "name": "teaching_plan_framework_id_framework_id_fk",
+          "tableFrom": "teaching_plan",
+          "columnsFrom": [
+            "framework_id"
+          ],
+          "tableTo": "framework",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "teaching_plan_document_id_document_id_fk": {
+          "name": "teaching_plan_document_id_document_id_fk",
+          "tableFrom": "teaching_plan",
+          "columnsFrom": [
+            "document_id"
+          ],
+          "tableTo": "document",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "teaching_plan_framework_slug_key": {
+          "name": "teaching_plan_framework_slug_key",
+          "columns": [
+            "framework_id",
+            "slug"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "teaching_plan_title_lang": {
+          "name": "teaching_plan_title_lang",
+          "value": "ocg_is_lang_string(\"teaching_plan\".\"title\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.concept": {
+      "name": "concept",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "framework_id": {
+          "name": "framework_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "human_code": {
+          "name": "human_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aliases": {
+          "name": "aliases",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "title": {
+          "name": "title",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "concept_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_gateway": {
+          "name": "is_gateway",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "status": {
+          "name": "status",
+          "type": "review_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'proposed'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "concept_id_base_object_id_fk": {
+          "name": "concept_id_base_object_id_fk",
+          "tableFrom": "concept",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "concept_framework_id_framework_id_fk": {
+          "name": "concept_framework_id_framework_id_fk",
+          "tableFrom": "concept",
+          "columnsFrom": [
+            "framework_id"
+          ],
+          "tableTo": "framework",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "concept_framework_code_key": {
+          "name": "concept_framework_code_key",
+          "columns": [
+            "framework_id",
+            "human_code"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "concept_title_lang": {
+          "name": "concept_title_lang",
+          "value": "ocg_is_lang_string(\"concept\".\"title\")"
+        },
+        "concept_description_lang": {
+          "name": "concept_description_lang",
+          "value": "ocg_is_lang_string(\"concept\".\"description\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.family": {
+      "name": "family",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "framework_id": {
+          "name": "framework_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "human_code": {
+          "name": "human_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "review_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'proposed'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "family_id_base_object_id_fk": {
+          "name": "family_id_base_object_id_fk",
+          "tableFrom": "family",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "family_framework_id_framework_id_fk": {
+          "name": "family_framework_id_framework_id_fk",
+          "tableFrom": "family",
+          "columnsFrom": [
+            "framework_id"
+          ],
+          "tableTo": "framework",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "family_framework_code_key": {
+          "name": "family_framework_code_key",
+          "columns": [
+            "framework_id",
+            "human_code"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "family_title_lang": {
+          "name": "family_title_lang",
+          "value": "ocg_is_lang_string(\"family\".\"title\")"
+        },
+        "family_description_lang": {
+          "name": "family_description_lang",
+          "value": "ocg_is_lang_string(\"family\".\"description\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.level": {
+      "name": "level",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "concept_id": {
+          "name": "concept_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "review_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'proposed'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "level_id_base_object_id_fk": {
+          "name": "level_id_base_object_id_fk",
+          "tableFrom": "level",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "level_concept_id_concept_id_fk": {
+          "name": "level_concept_id_concept_id_fk",
+          "tableFrom": "level",
+          "columnsFrom": [
+            "concept_id"
+          ],
+          "tableTo": "concept",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "level_concept_ordinal_key": {
+          "name": "level_concept_ordinal_key",
+          "columns": [
+            "concept_id",
+            "ordinal"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "level_title_lang": {
+          "name": "level_title_lang",
+          "value": "ocg_is_lang_string(\"level\".\"title\")"
+        },
+        "level_description_lang": {
+          "name": "level_description_lang",
+          "value": "ocg_is_lang_string(\"level\".\"description\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.link": {
+      "name": "link",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "link_type": {
+          "name": "link_type",
+          "type": "link_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_id": {
+          "name": "from_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_kind": {
+          "name": "from_kind",
+          "type": "object_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_id": {
+          "name": "to_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_kind": {
+          "name": "to_kind",
+          "type": "object_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "review_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'proposed'"
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rationale": {
+          "name": "rationale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "link_from_idx": {
+          "name": "link_from_idx",
+          "columns": [
+            {
+              "expression": "from_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "link_to_idx": {
+          "name": "link_to_idx",
+          "columns": [
+            {
+              "expression": "to_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "link_one_family_per_concept": {
+          "name": "link_one_family_per_concept",
+          "columns": [
+            {
+              "expression": "from_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"link\".\"link_type\" = 'part-of' and \"link\".\"status\" <> 'rejected'",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "link_id_base_object_id_fk": {
+          "name": "link_id_base_object_id_fk",
+          "tableFrom": "link",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "link_source_id_source_id_fk": {
+          "name": "link_source_id_source_id_fk",
+          "tableFrom": "link",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "tableTo": "source",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "link_from_fk": {
+          "name": "link_from_fk",
+          "tableFrom": "link",
+          "columnsFrom": [
+            "from_id",
+            "from_kind"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "link_to_fk": {
+          "name": "link_to_fk",
+          "tableFrom": "link",
+          "columnsFrom": [
+            "to_id",
+            "to_kind"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "link_type_from_to_key": {
+          "name": "link_type_from_to_key",
+          "columns": [
+            "link_type",
+            "from_id",
+            "to_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "link_not_to_self": {
+          "name": "link_not_to_self",
+          "value": "\"link\".\"from_id\" <> \"link\".\"to_id\""
+        },
+        "link_endpoint_kinds": {
+          "name": "link_endpoint_kinds",
+          "value": "(\"link\".\"link_type\" = 'needs' and \"link\".\"from_kind\" = 'concept' and \"link\".\"to_kind\" = 'concept')\n       or (\"link\".\"link_type\" = 'hinders' and \"link\".\"from_kind\" = 'misconception' and \"link\".\"to_kind\" = 'concept')\n       or (\"link\".\"link_type\" = 'defines' and \"link\".\"from_kind\" = 'statement' and \"link\".\"to_kind\" = 'concept')\n       or (\"link\".\"link_type\" = 'part-of' and \"link\".\"from_kind\" = 'concept' and \"link\".\"to_kind\" = 'family')\n       or (\"link\".\"link_type\" = 'replaced-by' and \"link\".\"from_kind\" = \"link\".\"to_kind\")"
+        },
+        "link_confidence_range": {
+          "name": "link_confidence_range",
+          "value": "\"link\".\"confidence\" between 0 and 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.misconception": {
+      "name": "misconception",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "framework_id": {
+          "name": "framework_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "human_code": {
+          "name": "human_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statement": {
+          "name": "statement",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "example": {
+          "name": "example",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "review_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'proposed'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "misconception_id_base_object_id_fk": {
+          "name": "misconception_id_base_object_id_fk",
+          "tableFrom": "misconception",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "misconception_framework_id_framework_id_fk": {
+          "name": "misconception_framework_id_framework_id_fk",
+          "tableFrom": "misconception",
+          "columnsFrom": [
+            "framework_id"
+          ],
+          "tableTo": "framework",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "misconception_source_id_source_id_fk": {
+          "name": "misconception_source_id_source_id_fk",
+          "tableFrom": "misconception",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "tableTo": "source",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "misconception_framework_code_key": {
+          "name": "misconception_framework_code_key",
+          "columns": [
+            "framework_id",
+            "human_code"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "misconception_statement_lang": {
+          "name": "misconception_statement_lang",
+          "value": "ocg_is_lang_string(\"misconception\".\"statement\")"
+        },
+        "misconception_example_lang": {
+          "name": "misconception_example_lang",
+          "value": "ocg_is_lang_string(\"misconception\".\"example\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.source": {
+      "name": "source",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "framework_id": {
+          "name": "framework_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "source_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statement_id": {
+          "name": "statement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "citation": {
+          "name": "citation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewer_id": {
+          "name": "reviewer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prompt_version": {
+          "name": "prompt_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "source_framework_idx": {
+          "name": "source_framework_idx",
+          "columns": [
+            {
+              "expression": "framework_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "source_id_base_object_id_fk": {
+          "name": "source_id_base_object_id_fk",
+          "tableFrom": "source",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "source_framework_id_framework_id_fk": {
+          "name": "source_framework_id_framework_id_fk",
+          "tableFrom": "source",
+          "columnsFrom": [
+            "framework_id"
+          ],
+          "tableTo": "framework",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "source_statement_id_statement_id_fk": {
+          "name": "source_statement_id_statement_id_fk",
+          "tableFrom": "source",
+          "columnsFrom": [
+            "statement_id"
+          ],
+          "tableTo": "statement",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "source_reviewer_id_user_id_fk": {
+          "name": "source_reviewer_id_user_id_fk",
+          "tableFrom": "source",
+          "columnsFrom": [
+            "reviewer_id"
+          ],
+          "tableTo": "user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "source_kind_fields": {
+          "name": "source_kind_fields",
+          "value": "(\"source\".\"kind\" = 'statement' and \"source\".\"statement_id\" is not null)\n       or (\"source\".\"kind\" = 'publication' and coalesce(\"source\".\"citation\", '') <> '')\n       or (\"source\".\"kind\" = 'reviewer' and \"source\".\"reviewer_id\" is not null)\n       or (\"source\".\"kind\" = 'ai' and \"source\".\"model\" is not null and \"source\".\"prompt_version\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.batch": {
+      "name": "batch",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "batch_created_by_user_id_fk": {
+          "name": "batch_created_by_user_id_fk",
+          "tableFrom": "batch",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.batch_item": {
+      "name": "batch_item",
+      "schema": "",
+      "columns": {
+        "batch_id": {
+          "name": "batch_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "object_id": {
+          "name": "object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "object_kind": {
+          "name": "object_kind",
+          "type": "object_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "control_expected": {
+          "name": "control_expected",
+          "type": "decision",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "control_note": {
+          "name": "control_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "batch_item_batch_id_batch_id_fk": {
+          "name": "batch_item_batch_id_batch_id_fk",
+          "tableFrom": "batch_item",
+          "columnsFrom": [
+            "batch_id"
+          ],
+          "tableTo": "batch",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "batch_item_object_fk": {
+          "name": "batch_item_object_fk",
+          "tableFrom": "batch_item",
+          "columnsFrom": [
+            "object_id",
+            "object_kind"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "batch_item_pkey": {
+          "name": "batch_item_pkey",
+          "columns": [
+            "batch_id",
+            "object_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.judgement": {
+      "name": "judgement",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "object_id": {
+          "name": "object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "object_kind": {
+          "name": "object_kind",
+          "type": "object_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "object_revision": {
+          "name": "object_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reviewer_id": {
+          "name": "reviewer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decision": {
+          "name": "decision",
+          "type": "decision",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason_code": {
+          "name": "reason_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "evidence": {
+          "name": "evidence",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_control": {
+          "name": "is_control",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "time_spent_ms": {
+          "name": "time_spent_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "supersedes_id": {
+          "name": "supersedes_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "judgement_object_idx": {
+          "name": "judgement_object_idx",
+          "columns": [
+            {
+              "expression": "object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "judgement_reviewer_idx": {
+          "name": "judgement_reviewer_idx",
+          "columns": [
+            {
+              "expression": "reviewer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "judgement_batch_idx": {
+          "name": "judgement_batch_idx",
+          "columns": [
+            {
+              "expression": "batch_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "judgement_reviewer_id_user_id_fk": {
+          "name": "judgement_reviewer_id_user_id_fk",
+          "tableFrom": "judgement",
+          "columnsFrom": [
+            "reviewer_id"
+          ],
+          "tableTo": "user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "judgement_batch_id_batch_id_fk": {
+          "name": "judgement_batch_id_batch_id_fk",
+          "tableFrom": "judgement",
+          "columnsFrom": [
+            "batch_id"
+          ],
+          "tableTo": "batch",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "judgement_object_fk": {
+          "name": "judgement_object_fk",
+          "tableFrom": "judgement",
+          "columnsFrom": [
+            "object_id",
+            "object_kind"
+          ],
+          "tableTo": "base_object",
+          "columnsTo": [
+            "id",
+            "kind"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "judgement_supersedes_fk": {
+          "name": "judgement_supersedes_fk",
+          "tableFrom": "judgement",
+          "columnsFrom": [
+            "supersedes_id",
+            "object_id",
+            "reviewer_id"
+          ],
+          "tableTo": "judgement",
+          "columnsTo": [
+            "id",
+            "object_id",
+            "reviewer_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "judgement_id_object_reviewer_key": {
+          "name": "judgement_id_object_reviewer_key",
+          "columns": [
+            "id",
+            "object_id",
+            "reviewer_id"
+          ],
+          "nullsNotDistinct": false
+        },
+        "judgement_supersedes_once_key": {
+          "name": "judgement_supersedes_once_key",
+          "columns": [
+            "supersedes_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "judgement_reason_given": {
+          "name": "judgement_reason_given",
+          "value": "(\"judgement\".\"decision\" = 'confirm' and coalesce(\"judgement\".\"reason_code\", '') <> '')\n       or (\"judgement\".\"decision\" <> 'confirm' and coalesce(trim(\"judgement\".\"reason\"), '') <> '')"
+        },
+        "judgement_time_spent_nonnegative": {
+          "name": "judgement_time_spent_nonnegative",
+          "value": "\"judgement\".\"time_spent_ms\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.account": {
+      "name": "account",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_token": {
+          "name": "id_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "access_token_expires_at": {
+          "name": "access_token_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refresh_token_expires_at": {
+          "name": "refresh_token_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "account_user_idx": {
+          "name": "account_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "account_user_id_user_id_fk": {
+          "name": "account_user_id_user_id_fk",
+          "tableFrom": "account",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.session": {
+      "name": "session",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "impersonated_by": {
+          "name": "impersonated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "session_user_idx": {
+          "name": "session_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "session_user_id_user_id_fk": {
+          "name": "session_user_id_user_id_fk",
+          "tableFrom": "session",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "user",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "session_token_unique": {
+          "name": "session_token_unique",
+          "columns": [
+            "token"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user": {
+      "name": "user",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email_verified": {
+          "name": "email_verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "banned": {
+          "name": "banned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "ban_reason": {
+          "name": "ban_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ban_expires": {
+          "name": "ban_expires",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "user_email_unique": {
+          "name": "user_email_unique",
+          "columns": [
+            "email"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.verification": {
+      "name": "verification",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "identifier": {
+          "name": "identifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "verification_identifier_idx": {
+          "name": "verification_identifier_idx",
+          "columns": [
+            {
+              "expression": "identifier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.object_kind": {
+      "name": "object_kind",
+      "schema": "public",
+      "values": [
+        "framework",
+        "education_level",
+        "document",
+        "node",
+        "statement",
+        "teaching_plan",
+        "placement",
+        "family",
+        "concept",
+        "level",
+        "misconception",
+        "link",
+        "source"
+      ]
+    },
+    "public.review_status": {
+      "name": "review_status",
+      "schema": "public",
+      "values": [
+        "proposed",
+        "confirmed",
+        "rejected"
+      ]
+    },
+    "public.statement_type": {
+      "name": "statement_type",
+      "schema": "public",
+      "values": [
+        "content",
+        "clarification",
+        "progression",
+        "exemplar",
+        "prerequisite"
+      ]
+    },
+    "public.concept_kind": {
+      "name": "concept_kind",
+      "schema": "public",
+      "values": [
+        "fact",
+        "category",
+        "procedure",
+        "principle"
+      ]
+    },
+    "public.link_type": {
+      "name": "link_type",
+      "schema": "public",
+      "values": [
+        "needs",
+        "hinders",
+        "defines",
+        "part-of",
+        "replaced-by"
+      ]
+    },
+    "public.source_kind": {
+      "name": "source_kind",
+      "schema": "public",
+      "values": [
+        "statement",
+        "publication",
+        "reviewer",
+        "ai"
+      ]
+    },
+    "public.decision": {
+      "name": "decision",
+      "schema": "public",
+      "values": [
+        "confirm",
+        "reject",
+        "needs-change"
+      ]
+    }
+  },
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
