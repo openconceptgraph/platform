@@ -15,7 +15,7 @@ export default async function SignInPage() {
           <h1>Sign in to review</h1>
           <SignInForm />
           <p className="small">
-            Accounts are made for named reviewers; there is no sign-up. Ask the curator if you need one.
+            Each reviewer is given an account; there is no sign-up. Ask the curator if you need one.
           </p>
         </div>
       </main>

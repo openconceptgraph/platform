@@ -25,7 +25,7 @@ import {
 import { framework } from "./transcription";
 
 // Interpretation: our reading of the curriculum. Nothing here is official;
-// trust is earned through named reviewers' judgements, and only confirmed
+// trust is earned through qualified reviewers' judgements, and only confirmed
 // objects and links reach a public release.
 
 /** A planning-grain group of concepts: "Integers". Teachers plan by family. */

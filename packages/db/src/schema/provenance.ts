@@ -9,7 +9,7 @@ export const sourceKind = pgEnum("source_kind", [
   "statement",
   /** A citable publication: a research paper, a diagnostic report. */
   "publication",
-  /** A named reviewer's judgement. */
+  /** A qualified reviewer's judgement. */
   "reviewer",
   /** An AI drafting run, identified by model and prompt version. */
   "ai",
