@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc",
     "test": "vitest run",
-    "user:create": "tsx --env-file-if-exists=../../.env.local scripts/create-user.ts"
+    "user:create": "tsx --env-file-if-exists=../../.env.local scripts/create-user.ts",
+    "seed:example": "tsx --env-file-if-exists=../../.env.local scripts/seed-example.ts"
   },
   "dependencies": {
     "@ocg/db": "workspace:*",

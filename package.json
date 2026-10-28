@@ -16,7 +16,8 @@
     "db:migrate": "pnpm --filter @ocg/db run migrate",
     "db:check": "pnpm --filter @ocg/db run check",
     "pg": "scripts/local-pg.sh",
-    "user:create": "pnpm --filter @ocg/web run user:create"
+    "user:create": "pnpm --filter @ocg/web run user:create",
+    "seed:example": "pnpm --filter @ocg/web run seed:example"
   },
   "devDependencies": {
     "turbo": "^2.11.10",

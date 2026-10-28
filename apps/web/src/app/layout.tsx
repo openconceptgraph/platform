@@ -1,5 +1,18 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
+import "./globals.css";
+
+// Atkinson Hyperlegible Next (Braille Institute, SIL OFL 1.1): keeps 1, l and I
+// and 0 and O apart, which matters on a screen full of maths.
+const body = localFont({
+  src: [
+    { path: "./fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2", style: "normal" },
+    { path: "./fonts/atkinson-hyperlegible-next-latin-wght-italic.woff2", style: "italic" },
+  ],
+  weight: "200 800",
+  variable: "--font-body",
+});
 
 export const metadata: Metadata = {
   title: "OpenConceptGraph",
@@ -8,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={body.variable}>
       <body>{children}</body>
     </html>
   );

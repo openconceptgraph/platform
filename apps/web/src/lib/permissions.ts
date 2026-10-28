@@ -24,3 +24,11 @@ export const roles = {
 
 export type Role = keyof typeof roles;
 export const roleNames = Object.keys(roles) as Role[];
+
+/** Whether a user's roles (Better Auth stores them comma-separated) allow a request. */
+export function can(userRoles: string | null | undefined, request: Parameters<(typeof roles)[Role]["authorize"]>[0]) {
+  return (userRoles ?? "")
+    .split(",")
+    .map((r) => r.trim())
+    .some((r) => r in roles && roles[r as Role].authorize(request).success);
+}
