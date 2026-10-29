@@ -29,14 +29,16 @@ Never point a development server or the tests at the production database. The te
 
 ## Running a command against production
 
-Pull the production variables into a local file (`.env*` files are ignored by git), and load them into a subshell for the one command, so that no connection string appears on a command line:
+`scripts/production.sh` runs one command with the project's production variables. It pulls them into a directory only you can read and deletes it when the command ends, so no connection string appears on a command line or stays on disk:
 
 ```sh
-vercel env pull .env.production.local --environment production
-(set -a; . ./.env.production.local; set +a; pnpm db:migrate)
+export BETTER_AUTH_URL=https://review.example.org   # see below
+scripts/production.sh pnpm db:migrate
 ```
 
-The same pattern runs `pnpm user:create`, `pnpm base import`, `pnpm base draft` and `pnpm batch` against production. Delete the file when you are done.
+The same goes for `pnpm user:create`, `pnpm base import`, `pnpm base draft` and `pnpm batch`.
+
+Vercel hands out a variable stored as *sensitive* only as the placeholder `[SENSITIVE]`. Store `BETTER_AUTH_URL` as an ordinary variable, or give its value when you run the script, as above: the script refuses to run on a placeholder for the address or a connection string. Keep `BETTER_AUTH_SECRET` sensitive. None of these commands sign anything with it, so the placeholder does no harm, but Better Auth warns that the secret looks short.
 
 ## A release
 
@@ -48,8 +50,8 @@ There is no down-migration. Recovery is Neon's point-in-time restore: check the 
 ## First run
 
 ```sh
-(set -a; . ./.env.production.local; set +a; pnpm db:migrate)
-(set -a; . ./.env.production.local; set +a; pnpm user:create --email you@example.org --name "Your Name" --role admin)
+scripts/production.sh pnpm db:migrate
+scripts/production.sh pnpm user:create --email you@example.org --name "Your Name" --role admin
 ```
 
 `user:create` asks for the password at the terminal; the person whose account it is should type it. Then create reviewers' accounts the same way, load a base's transcription and draft (`pnpm base import`, `pnpm base draft`), and give reviewers batches (`pnpm batch create`).
