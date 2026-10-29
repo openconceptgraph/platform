@@ -126,7 +126,7 @@ export async function importBase(db: Db, base: BaseFiles): Promise<ImportReport>
         p.placements.map((pl, i) => ({
           id: pl.id!,
           teachingPlanId: p.id!,
-          targetId: nodeIds.get(p.document)!.get(pl.node)!,
+          targetId: nodeIds.get(pl.document ?? p.document)!.get(pl.node)!,
           targetKind: "node" as const,
           educationLevelId: grade.get(pl.grade)!,
           term: pl.term ?? null,

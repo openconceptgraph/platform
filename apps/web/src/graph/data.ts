@@ -28,6 +28,8 @@ export interface TopicNode extends NodeBase {
   kind: "topic";
   title: string;
   nodeType: string;
+  /** When each teaching plan teaches it, by plan slug. */
+  when: Record<string, Placed>;
 }
 
 /** A curriculum line, word for word: a content bullet, or any line that defines a concept. */
@@ -52,6 +54,8 @@ export interface ConceptNode extends NodeBase {
   /** Family code, if it has one. */
   family: string | null;
   status: GraphStatus;
+  /** When each teaching plan first teaches it, by plan slug. */
+  when: Record<string, Placed>;
 }
 
 export interface MistakeNode extends NodeBase {
@@ -87,8 +91,32 @@ export interface Tally {
   confirmed: number;
 }
 
+/**
+ * When a teaching plan teaches something. A plan places topics, families or
+ * concepts (ADR-005); a concept is taught when the first topic that defines
+ * it is, unless the plan places the concept or its family itself.
+ */
+export interface Placed {
+  term: number | null;
+  weekStart: number | null;
+  weekEnd: number | null;
+  /** The hours the plan gives what it places, which may be a whole topic. */
+  hours: number | null;
+  /** What the plan places: a heading ("1.3 Integers"), or a family's or the concept's code. */
+  of: string;
+}
+
+export interface TeachingPlan {
+  slug: string;
+  title: string;
+  /** The document it is transcribed from. */
+  document: string | null;
+}
+
 export interface BaseGraph {
   framework: { id: string; slug: string; title: string };
+  /** In the order they were added: a curriculum's own plan before later ones. */
+  plans: TeachingPlan[];
   /** In curriculum order: the order of each family's first concept. */
   families: { code: string; title: string }[];
   nodes: GraphNode[];
@@ -156,14 +184,16 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
     kind: string | null;
     is_gateway: boolean;
     family: string | null;
+    family_id: string | null;
     status: GraphStatus;
   }>(sql`
     select c.id, c.human_code as code, c.title ->> 'en' as title, c.description ->> 'en' as description,
-           c.kind, c.is_gateway, ${status("c")} as status,
-           (select f.human_code from link p join family f on f.id = p.to_id
-             where p.link_type = 'part-of' and p.from_id = c.id and p.status <> 'rejected' and f.status <> 'rejected'
-             limit 1) as family
+           c.kind, c.is_gateway, ${status("c")} as status, fam.human_code as family, fam.id as family_id
       from concept c
+      left join lateral (
+        select f.id, f.human_code from link p join family f on f.id = p.to_id
+         where p.link_type = 'part-of' and p.from_id = c.id and p.status <> 'rejected' and f.status <> 'rejected'
+         limit 1) fam on true
      where c.framework_id = ${frameworkId} and c.status <> 'rejected' and ${current(sql`c.id`)} and ${notPlanted(sql`c.id`)}
      order by (select min(array[coalesce(s.page, 2147483647), s.ordinal])
                  from link d join statement s on s.id = d.from_id
@@ -199,6 +229,24 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
        and exists (select 1 from concept c where c.id = l.to_id and c.framework_id = ${frameworkId})
      order by l.link_type, l.id`);
 
+  const plans = await db.execute<{ slug: string; title: string; document: string | null }>(sql`
+    select tp.slug, tp.title ->> 'en' as title, d.title as document
+      from teaching_plan tp left join document d on d.id = tp.document_id
+     where tp.framework_id = ${frameworkId} and ${current(sql`tp.id`)}
+     order by tp.created_at, tp.slug`);
+  const placements = await db.execute<{
+    slug: string;
+    target_id: string;
+    term: number | null;
+    week_start: number | null;
+    week_end: number | null;
+    hours: number | null;
+  }>(sql`
+    select tp.slug, p.target_id, p.term, p.week_start, p.week_end, p.hours::float8 as hours
+      from placement p join teaching_plan tp on tp.id = p.teaching_plan_id
+     where tp.framework_id = ${frameworkId} and ${current(sql`p.id`)}
+     order by p.term nulls last, p.week_start nulls last, p.ordinal`);
+
   // Headings that hold a line on the map, and the headings above them.
   const headingById = new Map(headings.map((h) => [h.id, h]));
   const shownHeadings = new Set<string>();
@@ -209,10 +257,57 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
   }
   const lineIds = new Set(lines.map((l) => l.id));
 
+  // Each plan's earliest placement of each target, and when each node and concept is taught.
+  const placedAt = new Map<string, Map<string, (typeof placements)[number]>>();
+  for (const p of placements) {
+    const byPlan = placedAt.get(p.target_id) ?? new Map();
+    if (!byPlan.has(p.slug)) byPlan.set(p.slug, p);
+    placedAt.set(p.target_id, byPlan);
+  }
+  /** For each plan, the first of these targets it places. */
+  const whenOf = (targets: { id: string; of: string }[]) => {
+    const when: Record<string, Placed> = {};
+    for (const plan of plans) {
+      for (const t of targets) {
+        const p = placedAt.get(t.id)?.get(plan.slug);
+        if (p) {
+          when[plan.slug] = { term: p.term, weekStart: p.week_start, weekEnd: p.week_end, hours: p.hours, of: t.of };
+          break;
+        }
+      }
+    }
+    return when;
+  };
+  /** A heading and the headings above it, as placement targets. */
+  const headingAndAbove = (id: string | null) => {
+    const out: { id: string; of: string }[] = [];
+    for (let at = id; at; at = headingById.get(at)?.parent_id ?? null) out.push({ id: at, of: headingLabel(headingById.get(at))! });
+    return out;
+  };
+  const lineOrder = new Map(lines.map((l, i) => [l.id, i]));
+  const lineById = new Map(lines.map((l) => [l.id, l]));
+  const definingHeadings = new Map<string, { id: string; of: string }[]>();
+  for (const l of links
+    .filter((l) => l.type === "defines" && lineById.has(l.from_id))
+    .sort((a, b) => lineOrder.get(a.from_id)! - lineOrder.get(b.from_id)!)) {
+    const list = definingHeadings.get(l.to_id) ?? [];
+    list.push(...headingAndAbove(lineById.get(l.from_id)!.node_id));
+    definingHeadings.set(l.to_id, list);
+  }
+
   const nodes: GraphNode[] = [
     ...headings
       .filter((h) => shownHeadings.has(h.id))
-      .map((h): TopicNode => ({ kind: "topic", id: h.id, code: h.code ?? "", title: h.title, nodeType: h.node_type })),
+      .map(
+        (h): TopicNode => ({
+          kind: "topic",
+          id: h.id,
+          code: h.code ?? "",
+          title: h.title,
+          nodeType: h.node_type,
+          when: whenOf(headingAndAbove(h.id)),
+        }),
+      ),
     ...lines.map(
       (l): StatementNode => ({
         kind: "statement",
@@ -237,6 +332,11 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
         isGateway: c.is_gateway,
         family: c.family,
         status: c.status,
+        when: whenOf([
+          { id: c.id, of: c.code },
+          ...(c.family_id ? [{ id: c.family_id, of: c.family! }] : []),
+          ...(definingHeadings.get(c.id) ?? []),
+        ]),
       }),
     ),
     ...mistakes.map(
@@ -290,6 +390,7 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
 
   return {
     framework,
+    plans: [...plans],
     families,
     nodes,
     edges,

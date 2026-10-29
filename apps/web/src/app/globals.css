@@ -680,6 +680,20 @@ input:focus {
   align-items: center;
   gap: 5px;
 }
+.graph-term-key {
+  margin: -4px 0 12px;
+}
+.graph-term-key p {
+  margin: 4px 0 0;
+}
+.toggle select {
+  font: inherit;
+  font-size: 15px;
+  padding: 3px 6px;
+  border: 1px solid var(--feint);
+  border-radius: 6px;
+  background: var(--paper);
+}
 .graph-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;

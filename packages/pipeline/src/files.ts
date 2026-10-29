@@ -81,8 +81,16 @@ export const documentFile = z.strictObject({
 
 export const placementFile = z.strictObject({
   id: id.optional(),
-  /** A node of the plan's document, by its code: "1.3". */
+  /**
+   * The document whose node this places, by its file name without .json,
+   * when it is not the plan's own: an annual teaching plan schedules the
+   * curriculum statement's topics.
+   */
+  document: text.optional(),
+  /** A node of that document (the plan's own by default), by its code: "1.3". */
   node: text,
+  /** The plan's own words for what it places, as printed: "WHOLE NUMBERS". Not imported. */
+  asPrinted: text.optional(),
   grade: text,
   term: z.int().min(1).optional(),
   weekStart: z.int().min(1).optional(),
@@ -244,7 +252,8 @@ function crossCheck(base: BaseFiles) {
   for (const p of base.teachingPlans) {
     if (!docs.has(p.data.document)) problems.push(`${p.name}: no document "${p.data.document}"`);
     for (const pl of p.data.placements) {
-      if (!nodeCodes.get(p.data.document)?.has(pl.node)) problems.push(`${p.name}: no node ${pl.node} in ${p.data.document}`);
+      const placed = pl.document ?? p.data.document;
+      if (!nodeCodes.get(placed)?.has(pl.node)) problems.push(`${p.name}: no node ${pl.node} in ${placed}`);
       if (!grades.has(pl.grade)) problems.push(`${p.name}: no grade ${pl.grade} in the framework`);
     }
   }

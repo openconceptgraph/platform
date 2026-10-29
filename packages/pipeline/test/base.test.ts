@@ -143,6 +143,31 @@ describe("importing a transcription", () => {
     await writeFile(statementsFile(), json(topic));
   });
 
+  it("places a curriculum's topic from another document's teaching plan", async () => {
+    await writeFile(
+      path.join(dir, "documents", "example-annual-plan.json"),
+      json({ title: "Example Annual Teaching Plan, Grade 8", language: "en", nodes: [] }),
+    );
+    const plan = path.join(dir, "teaching-plans", "example-annual.json");
+    const placement = { document: "example-curriculum", node: "1.3", asPrinted: "SIGNED NUMBERS", grade: "8", term: 2, weekStart: 1, weekEnd: 2, hours: 9 };
+    await writeFile(plan, json({ slug: "example-annual", title: { en: "Example annual plan" }, document: "example-annual-plan", placements: [placement] }));
+    await mintBase(dir);
+    const base = await readBase(dir);
+    expect((await importBase(db, base)).placements).toEqual({ added: 1, changed: 0, unchanged: 1 });
+
+    const minted = JSON.parse(await readFile(plan, "utf8"));
+    const [row] = await db.select().from(schema.placement).where(eq(schema.placement.id, minted.placements[0].id));
+    const topic = base.documents.find((d) => d.name === "example-curriculum")!.data.nodes[0]!.children![0]!;
+    expect(row).toMatchObject({ targetId: topic.id, targetKind: "node", term: 2, weekStart: 1, weekEnd: 2, hours: "9.0" });
+    const [annual] = await db.select().from(schema.teachingPlan).where(eq(schema.teachingPlan.slug, "example-annual"));
+    const annualDoc = base.documents.find((d) => d.name === "example-annual-plan")!.data.id;
+    expect(annual?.documentId).toBe(annualDoc);
+
+    await writeFile(plan, json({ ...minted, placements: [{ ...minted.placements[0], document: "example-annual-plan" }] }));
+    await expect(readBase(dir)).rejects.toThrow(/no node 1.3 in example-annual-plan/);
+    await writeFile(plan, json(minted));
+  });
+
   it("refuses files without their IDs", async () => {
     const topic = JSON.parse(await readFile(statementsFile(), "utf8"));
     topic.notes[0].statements.push({ text: "A new note.", page: 12 });

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Attributes } from "graphology-types";
+import type { AbstractGraph, Attributes } from "graphology-types";
 import type Sigma from "sigma";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -9,13 +9,29 @@ import type {
   GraphNode,
   GraphStatus,
   MistakeNode,
+  Placed,
   StatementNode,
   Tally,
+  TeachingPlan,
   TopicNode,
 } from "@/graph/data";
 import type { Positions } from "@/graph/layout";
+import { planName, termChanges, whenText } from "@/graph/plans";
 import { type Related, Relations } from "@/graph/relations";
-import { edgeLook, familyColours, ink, ink2, mix, nodeLook, paper, RING, red } from "@/graph/style";
+import {
+  edgeLook,
+  familyColours,
+  ink,
+  ink2,
+  mix,
+  nodeLook,
+  paper,
+  RING,
+  red,
+  termColour,
+  termPalette,
+  unplaced,
+} from "@/graph/style";
 
 // The graph view: the map (sigma.js, WebGL), a card for the node in focus, and
 // the same concepts as a table for anyone who cannot use the map.
@@ -29,6 +45,14 @@ interface MapState {
 
 type Renderer = Sigma<Attributes, Attributes, Attributes, object, object, MapState>;
 
+/** "family", or a teaching plan's slug: colour concepts by the term that plan teaches them in. */
+type ColourBy = string;
+
+function look(node: GraphNode, colours: Record<string, string>, relations: Relations, colourBy: ColourBy) {
+  const byTerm = colourBy !== "family" && node.kind === "concept" ? termColour(node.when[colourBy]?.term) : undefined;
+  return nodeLook(node, colours, relations.neededFor(node.id).length, byTerm);
+}
+
 export function GraphExplorer({ graph, positions }: { graph: BaseGraph; positions: Positions }) {
   const relations = useMemo(() => new Relations(graph), [graph]);
   const colours = useMemo(() => familyColours(graph.families), [graph.families]);
@@ -40,8 +64,11 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
   const [hovered, setHovered] = useState<{ id: string; x: number; y: number; flip: boolean } | null>(null);
   const [pinned, setPinned] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [colourBy, setColourBy] = useState<ColourBy>("family");
+  const colourByNow = useRef<ColourBy>("family");
   const container = useRef<HTMLDivElement>(null);
   const renderer = useRef<Renderer | null>(null);
+  const drawn = useRef<AbstractGraph | null>(null);
 
   // Build the map once per graph. Sigma needs the browser, so it loads here.
   useEffect(() => {
@@ -63,7 +90,7 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
       for (const node of graph.nodes) {
         const at = positions[node.id] ?? { x: 0, y: 0 };
         g.addNode(node.id, {
-          ...nodeLook(node, colours, relations.neededFor(node.id).length),
+          ...look(node, colours, relations, colourByNow.current),
           ...at,
           kind: node.kind,
           families: relations.families(node.id),
@@ -190,13 +217,25 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
       instance.on("clickNode", ({ node }) => setPinned(node));
       instance.on("clickStage", () => setPinned(null));
       renderer.current = instance;
+      drawn.current = g;
     })();
     return () => {
       cancelled = true;
       instance?.kill();
       renderer.current = null;
+      drawn.current = null;
     };
   }, [graph, positions, relations, colours]);
+
+  // Recolour the concepts by family or by term; sigma redraws when their attributes change.
+  useEffect(() => {
+    colourByNow.current = colourBy;
+    const g = drawn.current;
+    if (!g) return;
+    for (const node of graph.nodes) {
+      if (node.kind === "concept") g.mergeNodeAttributes(node.id, look(node, colours, relations, colourBy));
+    }
+  }, [colourBy, graph, colours, relations]);
 
   // The box had no size while the table was shown.
   useEffect(() => {
@@ -272,6 +311,19 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
               <input type="checkbox" checked={showMistakes} onChange={(e) => setShowMistakes(e.target.checked)} />
               Typical mistakes
             </label>
+            {graph.plans.length > 0 && (
+              <label className="toggle">
+                Colour by
+                <select value={colourBy} onChange={(e) => setColourBy(e.target.value)}>
+                  <option value="family">family</option>
+                  {graph.plans.map((p) => (
+                    <option key={p.slug} value={p.slug}>
+                      term in {planName(p)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </>
         )}
         <input
@@ -301,7 +353,9 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
         spotlight={spotlight}
         onSpotlight={setSpotlight}
         seesProgress={graph.seesProgress}
+        byFamily={view === "table" || colourBy === "family"}
       />
+      {view === "map" && colourBy !== "family" && <TermKey graph={graph} plan={colourBy} />}
 
       <div className="graph-body">
         <div className="graph-main">
@@ -385,12 +439,15 @@ function Legend({
   spotlight,
   onSpotlight,
   seesProgress,
+  byFamily,
 }: {
   families: BaseGraph["families"];
   colours: Record<string, string>;
   spotlight: string | null;
   onSpotlight: (code: string | null) => void;
   seesProgress: boolean;
+  /** Whether the map is coloured by family, so the chips carry the colours. */
+  byFamily: boolean;
 }) {
   return (
     <div className="graph-legend">
@@ -404,7 +461,7 @@ function Legend({
             onClick={() => onSpotlight(spotlight === f.code ? null : f.code)}
             title={spotlight === f.code ? "Show every family" : `Pick out ${f.title}`}
           >
-            <i style={{ background: colours[f.code] }} />
+            {byFamily && <i style={{ background: colours[f.code] }} />}
             <b>{f.code}</b> {f.title}
           </button>
         ))}
@@ -491,6 +548,11 @@ function Tip({ node, relations, graph }: { node: GraphNode; relations: Relations
             {needs.length > 0 && ` Needs ${needs.map((n) => n.node.code).join(", ")}.`}
             {mistakes > 0 && ` ${mistakes} typical mistake${mistakes === 1 ? "" : "s"}.`}
           </div>
+          {graph.plans.length > 0 && (
+            <div className="meta">
+              {graph.plans.map((p) => `${planName(p)}: ${whenText(node.when[p.slug], { short: true })}`).join(" · ")}
+            </div>
+          )}
         </>
       );
     }
@@ -554,7 +616,7 @@ function Card({
       {node.kind === "concept" && <ConceptCard node={node} graph={graph} relations={relations} onSelect={onSelect} />}
       {node.kind === "statement" && <StatementCard node={node} relations={relations} onSelect={onSelect} />}
       {node.kind === "mistake" && <MistakeCard node={node} relations={relations} onSelect={onSelect} />}
-      {node.kind === "topic" && <TopicCard node={node} relations={relations} onSelect={onSelect} />}
+      {node.kind === "topic" && <TopicCard node={node} graph={graph} relations={relations} onSelect={onSelect} />}
     </div>
   );
 }
@@ -584,6 +646,8 @@ function ConceptCard({
         <Status status={node.status} /> {facts.join(" · ")}
       </p>
       {node.description && <p>{node.description}</p>}
+
+      <WhenTaught plans={graph.plans} when={node.when} />
 
       <h3>What the curriculum says</h3>
       {lines.length ? (
@@ -634,7 +698,17 @@ function MistakeCard({ node, relations, onSelect }: { node: MistakeNode; relatio
   );
 }
 
-function TopicCard({ node, relations, onSelect }: { node: TopicNode; relations: Relations; onSelect: (id: string) => void }) {
+function TopicCard({
+  node,
+  graph,
+  relations,
+  onSelect,
+}: {
+  node: TopicNode;
+  graph: BaseGraph;
+  relations: Relations;
+  onSelect: (id: string) => void;
+}) {
   const children = relations.children(node.id);
   const headings = children.filter((c) => c.node.kind === "topic");
   const lines = children.length - headings.length;
@@ -644,6 +718,7 @@ function TopicCard({ node, relations, onSelect }: { node: TopicNode; relations: 
       <h2>
         {node.code} {node.title}
       </h2>
+      <WhenTaught plans={graph.plans} when={node.when} />
       {headings.length > 0 && <RelatedList title="Under it" items={headings} empty="" onSelect={onSelect} />}
       {lines > 0 && (
         <p className="meta">
@@ -718,6 +793,11 @@ function ConceptTable({ graph, relations, onSelect }: { graph: BaseGraph; relati
             <th scope="col">Status</th>
             <th scope="col">Needs</th>
             <th scope="col">Mistakes</th>
+            {graph.plans.map((p) => (
+              <th key={p.slug} scope="col">
+                {planName(p)}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -738,10 +818,85 @@ function ConceptTable({ graph, relations, onSelect }: { graph: BaseGraph; relati
               </td>
               <td>{relations.prerequisites(c.id).map((p) => p.node.code).join(", ") || "—"}</td>
               <td>{relations.mistakes(c.id).length}</td>
+              {graph.plans.map((p) => (
+                <td key={p.slug}>{whenText(c.when[p.slug], { short: true })}</td>
+              ))}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** When each teaching plan teaches a concept or heading, and what the plan places to teach it. */
+function WhenTaught({ plans, when }: { plans: TeachingPlan[]; when: Record<string, Placed> }) {
+  if (plans.length === 0) return null;
+  return (
+    <>
+      <h3>When it is taught</h3>
+      <ul className="graph-related">
+        {plans.map((p) => {
+          const placed = when[p.slug];
+          return (
+            <li key={p.slug}>
+              <b>{planName(p)}</b>: {whenText(placed)}
+              {placed && (
+                <div className="rationale">
+                  {placed.of}
+                  {placed.hours ? `, ${placed.hours.toLocaleString("en-ZA")} hours` : ""}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+/** The term colours, and what changes against every other plan. */
+function TermKey({ graph, plan }: { graph: BaseGraph; plan: string }) {
+  const chosen = graph.plans.find((p) => p.slug === plan);
+  if (!chosen) return null;
+  return (
+    <div className="graph-term-key">
+      <div className="keys meta">
+        <span>Coloured by the term {planName(chosen)} teaches each concept in:</span>
+        {termPalette.map((colour, i) => (
+          <span key={colour}>
+            <Swatch colour={colour} /> Term {i + 1}
+          </span>
+        ))}
+        <span>
+          <Swatch colour={unplaced} /> not placed
+        </span>
+      </div>
+      {graph.plans
+        .filter((p) => p.slug !== plan)
+        .map((other) => {
+          const changes = termChanges(graph, other.slug, plan);
+          return (
+            <p key={other.slug} className="meta">
+              {changes.length === 0
+                ? `Every concept both plans place is taught in the same term as in ${planName(other)}.`
+                : `Against ${planName(other)}: ${changes
+                    .map(
+                      (c) =>
+                        `${c.of} (${c.concepts.length} concept${c.concepts.length === 1 ? "" : "s"}) moves from Term ${c.fromTerm} to Term ${c.toTerm}`,
+                    )
+                    .join("; ")}.`}
+            </p>
+          );
+        })}
+    </div>
+  );
+}
+
+function Swatch({ colour }: { colour: string }) {
+  return (
+    <svg width="12" height="12" aria-hidden="true">
+      <circle cx="6" cy="6" r="5" fill={colour} />
+    </svg>
   );
 }

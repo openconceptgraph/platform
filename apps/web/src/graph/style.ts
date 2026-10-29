@@ -22,6 +22,19 @@ export const red = "#d62839";
 export const familyPalette = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6"];
 export const otherFamily = "#8a9bbd";
 
+/**
+ * Terms 1 to 4 when the map is coloured by a teaching plan: one hue, light to
+ * dark (the house palette's blue at steps 250, 400, 550 and 700, checked as an
+ * ordinal ramp). Family colours are not shown meanwhile.
+ */
+export const termPalette = ["#86b6ef", "#3987e5", "#1c5cab", "#0d366b"];
+/** A concept the chosen plan does not place. */
+export const unplaced = "#8c8c8c";
+
+export function termColour(term: number | null | undefined): string {
+  return (term && termPalette[term - 1]) || unplaced;
+}
+
 export function familyColours(families: BaseGraph["families"]): Record<string, string> {
   return Object.fromEntries(families.map((f, i) => [f.code, familyPalette[i] ?? otherFamily]));
 }
@@ -59,8 +72,11 @@ function filled(colour: string, status: GraphStatus) {
   return { color: status === "reviewed" ? mix(colour, paper, 0.55) : paper, borderColor: colour, borderSize: RING };
 }
 
-/** `dependents`: how many concepts need this one, which sets its size. */
-export function nodeLook(node: GraphNode, colours: Record<string, string>, dependents = 0): NodeLook {
+/**
+ * `dependents`: how many concepts need this one, which sets its size.
+ * `conceptColour`, if given, replaces a concept's family colour.
+ */
+export function nodeLook(node: GraphNode, colours: Record<string, string>, dependents = 0, conceptColour?: string): NodeLook {
   switch (node.kind) {
     case "topic":
       return {
@@ -82,7 +98,7 @@ export function nodeLook(node: GraphNode, colours: Record<string, string>, depen
         ...(node.isRevision ? { color: paper, borderColor: ink2, borderSize: RING } : { color: ink2, borderColor: ink2, borderSize: 0 }),
       };
     case "concept": {
-      const colour = (node.family && colours[node.family]) || otherFamily;
+      const colour = conceptColour ?? ((node.family && colours[node.family]) || otherFamily);
       return {
         label: node.code,
         shape: "circle",

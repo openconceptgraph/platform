@@ -47,7 +47,9 @@ try {
     }
     case "check": {
       const base = await readBase(at(positionals[1], "<dir>"));
-      const documents = o.document ? [o.document] : base.documents.filter((d) => d.data.pdf).map((d) => d.name);
+      // By default, every document with statements transcribed from it.
+      const transcribed = (name: string) => base.topics.some((t) => t.data.document === name);
+      const documents = o.document ? [o.document] : base.documents.filter((d) => d.data.pdf && transcribed(d.name)).map((d) => d.name);
       let errors = 0;
       for (const document of documents) {
         const findings = await checkBase(base, document, at(o.pdf, "--pdf"));
