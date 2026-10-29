@@ -17,5 +17,5 @@ export async function updateProfile(_state: { error?: string } | undefined, form
   if (!result.ok) {
     return { error: result.error };
   }
-  redirect("/review");
+  redirect("/");
 }

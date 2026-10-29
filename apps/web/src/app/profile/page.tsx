@@ -14,7 +14,7 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <AppHeader name={user.name} />
+      <AppHeader name={user.name} role={user.role} />
       <main className="narrow">
         <div className="panel">
           <h1>{profile ? "How you appear" : "Before you start: how you appear"}</h1>

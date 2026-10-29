@@ -12,7 +12,7 @@ export default async function BatchesPage() {
 
   return (
     <>
-      <AppHeader name={user.name} />
+      <AppHeader name={user.name} role={user.role} />
       <main className="narrow">
         <h1>Your batches</h1>
         {open.length === 0 && <p className="empty panel">Nothing to review at the moment.</p>}

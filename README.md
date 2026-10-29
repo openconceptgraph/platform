@@ -2,12 +2,12 @@
 
 The software behind OpenConceptGraph: a review workbench, a publishing pipeline, a public API (REST conforming to CASE 1.1, GraphQL, MCP), an explorer and report generators. The data it works on are concept graphs of official curricula. The open specification is in [`spec`](https://github.com/openconceptgraph/spec), and released bases such as [`base-za-caps`](https://github.com/openconceptgraph/base-za-caps) each have their own repository.
 
-**Status: early.** This repository holds the data layer, sign-in, the review workbench with the curator's batch tool, and the first part of the pipeline: transcribing a curriculum, checking the transcription word for word, importing it and loading an AI draft. Releases, the API and the explorer come next.
+**Status: early.** This repository holds the data layer, sign-in, the review workbench with the curator's batch tool and a graph view of the base, and the first part of the pipeline: transcribing a curriculum, checking the transcription word for word, importing it and loading an AI draft. Releases, the API and the public explorer come next.
 
 ## Layout
 
 ```
-apps/web           Next.js app: the review workbench so far; the API and explorer later
+apps/web           Next.js app: the review workbench and graph view so far; the API and explorer later
 packages/db        Drizzle schema, migrations and the database's own rules
 packages/pipeline  From a curriculum's files to the working database: check, import, draft
 scripts/           local-pg.sh: a private Postgres for development and tests
@@ -53,6 +53,14 @@ pnpm user:create --email you@example.org --name "Your Name" --role reviewer
 pnpm seed:example --reviewer you@example.org
 pnpm dev                     # then sign in at http://localhost:3000
 ```
+
+## The graph view
+
+Anyone signed in can open **Graph** to see a base as a map: its concepts coloured by family, the prerequisites between them, the curriculum lines that define them under their headings, and, behind a toggle, the typical mistakes. Hovering over a node shows its card; clicking keeps the card open beside the map; a family's chip picks that family out. The same concepts are listed as a table for anyone who cannot use the map, which needs WebGL 2.
+
+Fill shows how far each item is through review: hollow while proposed, solid once two reviewers have confirmed it, and in between for curators and admins once one reviewer has. Reviewers see only proposed and confirmed, as on their review screens, because the state in between would show them another reviewer's decision. Prerequisite links are dashed until confirmed. Rejected and retired items are left out, and planted controls never appear.
+
+The layout is worked out on the server from fixed starting points, so the same data always gives the same picture.
 
 ## Building a base
 

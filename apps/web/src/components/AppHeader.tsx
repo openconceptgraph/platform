@@ -1,15 +1,30 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOut } from "@/app/sign-in/actions";
+import { can } from "@/lib/permissions";
 import { Mark } from "./Mark";
 
-export function AppHeader({ name, children }: { name?: string; children?: ReactNode }) {
+/** The workbench header. Given the signed-in user's roles, it links to the screens they may use. */
+export function AppHeader({ name, role, children }: { name?: string; role?: string | null; children?: ReactNode }) {
+  const links = [
+    can(role, { judgement: ["create"] }) && { href: "/review", label: "Batches" },
+    can(role, { graph: ["view"] }) && { href: "/graph", label: "Graph" },
+  ].filter((l): l is { href: string; label: string } => Boolean(l));
   return (
     <header className="app-header">
-      <Link href="/review" className="brand">
+      <Link href="/" className="brand">
         <Mark />
         OpenConceptGraph <span>Review</span>
       </Link>
+      {links.length > 1 && (
+        <nav className="app-nav">
+          {links.map((l) => (
+            <Link key={l.href} href={l.href}>
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+      )}
       {children}
       {name && (
         <form action={signOut} className="who">

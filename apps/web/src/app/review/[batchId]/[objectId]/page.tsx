@@ -50,7 +50,7 @@ export default async function ReviewItemPage({ params }: { params: Promise<{ bat
 
   return (
     <>
-      <AppHeader name={user.name}>
+      <AppHeader name={user.name} role={user.role}>
         <Progress title={batch.title} done={done} total={items.length} />
       </AppHeader>
       <main className="page review">

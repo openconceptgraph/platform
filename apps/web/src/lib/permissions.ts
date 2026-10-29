@@ -5,7 +5,7 @@ import { adminAc, defaultStatements } from "better-auth/plugins/admin/access";
  * What each role may do. Reviewers judge; curators prepare the base and put it
  * to review in batches; admins manage accounts, cut releases and, when they
  * choose to, test a reviewer with planted controls. One person may hold
- * several roles.
+ * several roles. Everyone may look at the graph.
  */
 const statements = {
   ...defaultStatements,
@@ -15,14 +15,20 @@ const statements = {
   release: ["create"],
   /** Planting controls and putting them in batches: optional, for calibrating new reviewers. */
   control: ["plant"],
+  /**
+   * The graph view. Seeing which items one reviewer has confirmed and a second
+   * has yet to is for curators and admins: it would show a reviewer another
+   * reviewer's decision, which their review screens never do (ADR-028, 032).
+   */
+  graph: ["view", "see-progress"],
 } as const;
 
 export const ac = createAccessControl(statements);
 
 export const roles = {
-  reviewer: ac.newRole({ judgement: ["create"] }),
-  curator: ac.newRole({ base: ["edit", "retire"], batch: ["create", "close"] }),
-  admin: ac.newRole({ ...adminAc.statements, release: ["create"], control: ["plant"] }),
+  reviewer: ac.newRole({ judgement: ["create"], graph: ["view"] }),
+  curator: ac.newRole({ base: ["edit", "retire"], batch: ["create", "close"], graph: ["view", "see-progress"] }),
+  admin: ac.newRole({ ...adminAc.statements, release: ["create"], control: ["plant"], graph: ["view", "see-progress"] }),
 };
 
 export type Role = keyof typeof roles;

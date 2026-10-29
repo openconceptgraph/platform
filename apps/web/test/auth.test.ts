@@ -69,4 +69,11 @@ describe("roles", () => {
     expect(await can("admin", { user: ["create", "set-role"], release: ["create"], control: ["plant"] })).toBe(true);
     expect(await can("admin", { judgement: ["create"] })).toBe(false);
   });
+
+  it("let everyone see the graph, and only curators and admins see who has reviewed what once", async () => {
+    expect(await can("reviewer", { graph: ["view"] })).toBe(true);
+    expect(await can("reviewer", { graph: ["see-progress"] })).toBe(false);
+    expect(await can("curator", { graph: ["view", "see-progress"] })).toBe(true);
+    expect(await can("admin", { graph: ["view", "see-progress"] })).toBe(true);
+  });
 });

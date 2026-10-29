@@ -17,7 +17,7 @@ export default async function BatchDonePage({ params }: { params: Promise<{ batc
 
   return (
     <>
-      <AppHeader name={user.name}>
+      <AppHeader name={user.name} role={user.role}>
         <Progress title={batch.title} done={done} total={items.length} />
       </AppHeader>
       <main className="narrow">

@@ -146,7 +146,7 @@ function free(id: SQL) {
 }
 
 /** Reviewers' current judgements of this revision of an object, planted controls aside. */
-function live(id: SQL, revision: SQL, condition: SQL) {
+export function live(id: SQL, revision: SQL, condition: SQL) {
   return sql`(select 1 from judgement j
                where j.object_id = ${id} and j.object_revision = ${revision} and not j.is_control
                  and not exists (select 1 from judgement later where later.supersedes_id = j.id)

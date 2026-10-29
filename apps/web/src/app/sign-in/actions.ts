@@ -13,7 +13,7 @@ export async function signIn(_state: { error?: string } | undefined, formData: F
   } catch {
     return { error: "That email and password do not match an account." };
   }
-  redirect("/review");
+  redirect("/");
 }
 
 export async function signOut() {

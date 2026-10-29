@@ -28,3 +28,15 @@ export async function requireReviewer() {
   }
   return { ...user, publicName: profile.publicName };
 }
+
+/** The signed-in user, if their roles let them see the graph; anyone else is sent to sign in. */
+export async function requireGraphViewer() {
+  const user = await currentUser();
+  if (!user) {
+    redirect("/sign-in");
+  }
+  if (!can(user.role, { graph: ["view"] })) {
+    redirect("/not-a-reviewer");
+  }
+  return { ...user, seesProgress: can(user.role, { graph: ["see-progress"] }) };
+}

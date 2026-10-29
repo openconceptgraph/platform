@@ -5,7 +5,7 @@ import { SignInForm } from "./SignInForm";
 
 export default async function SignInPage() {
   if (await currentUser()) {
-    redirect("/review");
+    redirect("/");
   }
   return (
     <>
