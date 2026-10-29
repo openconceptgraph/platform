@@ -25,7 +25,11 @@
     "lint": {},
     "typecheck": {},
     "test": {
-      "cache": false
+      "cache": false,
+      "passThroughEnv": [
+        "OCG_SPEC_DIR",
+        "CI"
+      ]
     }
   }
 }

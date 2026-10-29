@@ -262,7 +262,8 @@ describe("a release from the working database", () => {
     }
   });
 
-  it.skipIf(!process.env.OCG_SPEC_DIR && !specValidator())("conforms to the specification's reference validator", async () => {
+  // Skipped only on a machine with no spec checkout; in CI, a missing validator fails the test.
+  it.skipIf(!process.env.CI && !process.env.OCG_SPEC_DIR && !specValidator())("conforms to the specification's reference validator", async () => {
     const at = path.join(out, "conforms");
     await writeRelease(at, await build());
     const cli = specValidator();
