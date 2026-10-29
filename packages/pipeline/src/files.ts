@@ -65,7 +65,7 @@ export const documentFile = z.strictObject({
   versionLabel: text.optional(),
   url: z.url().optional(),
   rights: text.optional(),
-  /** The copy the transcription was checked against. Not imported. */
+  /** The copy the transcription was checked against. */
   pdf: z
     .strictObject({
       sha256: z.string().regex(/^[0-9a-f]{64}$/),
@@ -113,7 +113,7 @@ export interface StatementFile {
   id?: string;
   code?: string;
   type?: (typeof statementTypes)[number];
-  /** A label the statement sits under, such as "Revise:" or "Example:". Its words are checked, not imported. */
+  /** A label the statement sits under, such as "Revise:" or "Example:". Its words are checked too. */
   label?: string;
   /** Opens with or sits under "Revise": it points back to earlier teaching (ADR-003). */
   revise?: boolean;

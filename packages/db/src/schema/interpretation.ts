@@ -122,7 +122,7 @@ export const misconception = pgTable(
 );
 
 export const linkType = pgEnum("link_type", [
-  /** Concept → concept: the first must be secure before the second can be learnt. Never loops. */
+  /** Concept → the concept it needs: the target must be secure before the origin can be learnt. Never loops. */
   "needs",
   /** Misconception → concept it blocks. */
   "hinders",

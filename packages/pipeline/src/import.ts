@@ -4,7 +4,9 @@ import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { allNodes, type BaseFiles, type NodeFile, topicStatements } from "./files";
 
 // Loads a base's transcription into the working database: framework, grades,
-// documents and their headings, statements, teaching plans and placements.
+// documents (with the file they were checked against) and their headings,
+// statements (with their printed labels, headings and transcribers' notes),
+// teaching plans and placements.
 //
 // Every object keeps the ID its file gives it. Running the import again
 // changes nothing that has not changed; a changed object is updated, and the
@@ -66,6 +68,9 @@ export async function importBase(db: Db, base: BaseFiles): Promise<ImportReport>
         versionLabel: d.versionLabel ?? null,
         url: d.url ?? null,
         rights: d.rights ?? null,
+        fileSha256: d.pdf?.sha256 ?? null,
+        filePages: d.pdf?.pages ?? null,
+        printedPageOffset: d.pdf?.printedPageOffset ?? null,
       })),
     );
 
@@ -104,6 +109,12 @@ export async function importBase(db: Db, base: BaseFiles): Promise<ImportReport>
           ...(heading ? [heading] : []),
         ].join(" · "),
         ordinal,
+        label: s.label ?? null,
+        heading: heading ?? null,
+        // Transcribers' notes are written in English.
+        note: s.note ? { en: s.note } : null,
+        // Every statement passes `base check` before it is imported; these are the lines it confirmed by eye.
+        verifiedBy: s.eyeChecked ? ("eye" as const) : ("text-layer" as const),
       })),
     );
     report.statements = await sync(tx, schema.statement, statementRows);
@@ -134,6 +145,7 @@ export async function importBase(db: Db, base: BaseFiles): Promise<ImportReport>
           weekEnd: pl.weekEnd ?? null,
           hours: pl.hours === undefined ? null : pl.hours.toFixed(1),
           ordinal: i + 1,
+          asPrinted: pl.asPrinted ?? null,
         })),
       ),
     );

@@ -78,6 +78,20 @@
       "when": 1793264272793,
       "tag": "0010_two_reviewers",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793283437107,
+      "tag": "0011_transcription_detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793283437651,
+      "tag": "0012_transcription_check_rules",
+      "breakpoints": true
     }
   ]
 }

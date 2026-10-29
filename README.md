@@ -70,9 +70,11 @@ A base keeps its transcription of the curriculum in its own repository, such as 
 
 ```sh
 pnpm base mint ../base-za-caps/mathematics      # permanent IDs for new objects, codes for new statements
-pnpm base check ../base-za-caps/mathematics --pdf <the document's PDF>
+pnpm base check ../base-za-caps/mathematics --pdf <the document's PDF> [--record]
 pnpm base import ../base-za-caps/mathematics    # into the working database
+pnpm base signoff ../base-za-caps/mathematics --document <name> --pages 75-77 --by "<public name>"
 pnpm base draft <draft file>                    # an AI draft of concepts, prerequisites and mistakes
+pnpm base release ../base-za-caps/mathematics --version 0.1.0 --out <folder> [--previous <folder>]
 ```
 
 **Mint** gives every object a UUID and every statement a code such as `8/1.3/c04` (grade, topic, column, number). It never changes one that exists.
@@ -81,9 +83,19 @@ pnpm base draft <draft file>                    # an AI draft of concepts, prere
 
 A teaching plan places the topics of its own document, or of another: an annual teaching plan schedules the curriculum statement's topics, so each of its placements names that document and keeps the plan's own heading for the topic as printed. Placements are terms, weeks and hours, checked by eye against the printed plan.
 
-**Import** loads the files into Postgres under their own IDs. Run again, it changes nothing that has not changed; a corrected statement becomes a new revision. Nothing is deleted: an object that is no longer in the files is refused, to be retired instead.
+With `--record`, a check that finds no errors is recorded against each document it checked. **Signoff** records a person's check of printed pages against the transcription, under the public name they chose. Both kinds of check are released with their document, so a release can say how its transcription was checked.
+
+**Import** loads the files into Postgres under their own IDs, with each statement's printed label and sub-heading, its transcriber's note and how the check confirmed it. Run again, it changes nothing that has not changed; a corrected statement becomes a new revision. Nothing is deleted: an object that is no longer in the files is refused, to be retired instead.
 
 **Draft** loads families, concepts, prerequisite links and typical mistakes, all as proposed. Each link cites the drafting run (model and prompt version) as its source, and each mistake cites the curriculum note that names it, or nothing, which flags it as unsourced. Objects are matched by code and links by their ends, so a revised draft updates in place. The drafting method is a versioned prompt in [`packages/pipeline/prompts`](packages/pipeline/prompts); a change of method is a new version. Drafts are working material, not data for publishing: only reviewed objects reach a release.
+
+**Release** builds a base release from the working database, laid out as the [specification](https://github.com/openconceptgraph/spec) says (`docs/release.md`), then checks it with the specification's reference validator. It holds:
+- the whole transcription;
+- only the families, concepts, levels, mistakes and links that reviewers have confirmed, and only links whose ends are both released;
+- the sources they cite;
+- for each released object, a summary of its review under the reviewers' public names.
+
+Planted controls and retired objects are left out. Given the release before it (`--previous`), it refuses to drop an object that release held unless the object has been retired. The base's `release.json` gives the title, licence, credit lines and review policy. The same database gives the same bytes. The validator is a built checkout of the spec repository: `OCG_SPEC_DIR`, or `../spec` beside this repository, as the workspace keeps it.
 
 ## Making batches
 
@@ -133,7 +145,7 @@ pnpm test        # wipes and migrates TEST_DATABASE_URL, then checks the rules b
 pnpm build
 ```
 
-CI runs all of these on every pull request. It also fails if the schema has changed without a migration (`pnpm db:generate` creates one).
+CI runs all of these on every pull request. It also fails if the schema has changed without a migration (`pnpm db:generate` creates one). It builds the specification's reference validator at a pinned commit, so the release tests check a built release against it.
 
 ## Rules the database keeps
 
@@ -144,6 +156,7 @@ These hold whatever the application does, and the tests check each one.
 - **Every link has a source and a status,** and joins only the kinds its type allows (for example, `needs` runs from concept to concept).
 - **`needs` never loops,** even when two writers race. Planted controls are not part of the graph, so they never count.
 - **A review status follows judgements and nothing else.** Counting each reviewer's latest judgement on the current revision, an object is confirmed when every one confirms and at least two reviewers have, rejected when every one rejects, and otherwise stays proposed: waiting for a second reviewer, a change was asked for, or reviewers disagree. Confirming takes two different reviewers; one rejection is enough, because a rejected object never reaches a release. Judgements on planted controls never count, so a planted item can never be confirmed into a release.
+- **Transcription checks are append-only,** and a person's check names them.
 - **The judgement record is append-only.** A judgement must be on the object's current revision and must carry a reason. The database sets its time and its control flag. Only a batch's assigned reviewer may judge in it. A change of mind is a new judgement that supersedes the old one and says why.
 
 ## Contributing

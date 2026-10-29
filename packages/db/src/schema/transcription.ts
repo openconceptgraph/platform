@@ -12,6 +12,7 @@ import {
   pgTable,
   smallint,
   text,
+  timestamp,
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -82,10 +83,16 @@ export const document = pgTable(
     versionLabel: text("version_label"),
     url: text("url"),
     rights: text("rights"),
+    /** The published file the transcription is checked against: its SHA-256, page count, and file page minus printed page. */
+    fileSha256: text("file_sha256"),
+    filePages: integer("file_pages"),
+    printedPageOffset: integer("printed_page_offset"),
   },
   (t) => [
     index("document_framework_idx").on(t.frameworkId),
     check("document_title_present", sql`${t.title} <> ''`),
+    check("document_file_sha256_format", sql`${t.fileSha256} ~ '^[0-9a-f]{64}$'`),
+    check("document_file_pages_positive", sql`${t.filePages} > 0`),
   ],
 );
 
@@ -111,6 +118,9 @@ export const node = pgTable(
     check("node_title_present", sql`${t.title} <> ''`),
   ],
 );
+
+/** How the machine check confirmed a line: against the file's text layer, or, where that cannot order it, by eye. */
+export const statementVerification = pgEnum("statement_verification", ["text-layer", "eye"]);
 
 export const statementType = pgEnum("statement_type", [
   /** A leaf of the content: a "concepts and skills" bullet. */
@@ -149,6 +159,13 @@ export const statement = pgTable(
     /** Where on the page, when the page alone is ambiguous: "Grade 8 column". */
     locator: text("locator"),
     ordinal: integer("ordinal").notNull().default(0),
+    /** A lead-in printed over the statement, word for word: "Revise:", "Example:". */
+    label: text("label"),
+    /** The printed sub-heading the statement sits under within its node, word for word. */
+    heading: text("heading"),
+    /** A transcriber's note, such as where the original's own error is kept as printed. */
+    note: langString("note"),
+    verifiedBy: statementVerification("verified_by"),
   },
   (t) => [
     // A statement sits under a node of its own document.
@@ -161,6 +178,40 @@ export const statement = pgTable(
     index("statement_node_idx").on(t.nodeId),
     check("statement_text_present", sql`${t.text} <> ''`),
     check("statement_page_positive", sql`${t.page} > 0`),
+    check("statement_label_present", sql`${t.label} <> ''`),
+    check("statement_heading_present", sql`${t.heading} <> ''`),
+    langStringCheck("statement_note_lang", t.note),
+  ],
+);
+
+export const checkMethod = pgEnum("check_method", ["machine", "person"]);
+
+/**
+ * A check of a document's transcription: by machine against the file's text
+ * layer, or by a person against the printed page. Not a base object: it is a
+ * record about one, append-only, and released with its document.
+ */
+export const transcriptionCheck = pgTable(
+  "transcription_check",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => document.id),
+    method: checkMethod("method").notNull(),
+    /** The printed pages checked; null means every page transcribed from the document. */
+    pages: integer("pages").array(),
+    checkedOn: date("checked_on").notNull(),
+    /** For a person, the public name they chose. */
+    checkedBy: text("checked_by"),
+    note: langString("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("transcription_check_document_idx").on(t.documentId),
+    check("transcription_check_person_named", sql`${t.method} <> 'person' or coalesce(btrim(${t.checkedBy}), '') <> ''`),
+    check("transcription_check_pages_present", sql`${t.pages} is null or cardinality(${t.pages}) > 0`),
+    langStringCheck("transcription_check_note_lang", t.note),
   ],
 );
 
@@ -204,6 +255,8 @@ export const placement = pgTable(
     weekEnd: smallint("week_end"),
     hours: numeric("hours", { precision: 5, scale: 1 }),
     ordinal: integer("ordinal").notNull().default(0),
+    /** The plan's own heading for the target, word for word, where it differs from the target's. */
+    asPrinted: text("as_printed"),
   },
   (t) => [
     foreignKey({
@@ -216,5 +269,6 @@ export const placement = pgTable(
     check("placement_target_kind", sql`${t.targetKind} in ('node', 'family', 'concept')`),
     check("placement_weeks_ordered", sql`${t.weekEnd} >= ${t.weekStart}`),
     check("placement_hours_positive", sql`${t.hours} > 0`),
+    check("placement_as_printed_present", sql`${t.asPrinted} <> ''`),
   ],
 );

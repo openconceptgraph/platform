@@ -55,6 +55,15 @@ jobs:
             echo "The schema has changed without a migration: run pnpm db:generate and commit the result."
             exit 1
           }
+      - name: The specification's reference validator, for the release tests
+        # Pinned: move it on when the specification changes.
+        env:
+          SPEC_REF: 75223997766ab90a88e3cfeb5574677575ce0b10
+        run: |
+          git clone --quiet https://github.com/openconceptgraph/spec "$RUNNER_TEMP/spec"
+          git -C "$RUNNER_TEMP/spec" checkout --quiet "$SPEC_REF"
+          (cd "$RUNNER_TEMP/spec" && pnpm install --frozen-lockfile && pnpm run build)
+          echo "OCG_SPEC_DIR=$RUNNER_TEMP/spec" >> "$GITHUB_ENV"
       - name: Test (migrates a fresh database, then checks its rules)
         run: pnpm test
       - run: pnpm build
