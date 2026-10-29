@@ -74,12 +74,14 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
   useEffect(() => {
     let cancelled = false;
     let instance: Renderer | undefined;
+    let stopPhysics: (() => void) | undefined;
     (async () => {
-      const [{ default: SigmaClass }, { default: Graph }, rendering, { layerBorder }] = await Promise.all([
+      const [{ default: SigmaClass }, { default: Graph }, rendering, { layerBorder }, physics] = await Promise.all([
         import("sigma"),
         import("graphology"),
         import("sigma/rendering"),
         import("@sigma/node-border"),
+        import("d3-force"),
       ]);
       // Labels are drawn from a font atlas, so the page's font must be ready first.
       await document.fonts.ready;
@@ -202,6 +204,8 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
             maxCameraRatio: 3,
             // The map's box is hidden while the table is shown.
             allowInvalidContainer: true,
+            // Fit the map to the box once, so nodes moving under a drag never re-fit the view.
+            autoRescale: "once",
           },
         }) as unknown as Renderer;
       } catch {
@@ -213,14 +217,76 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
         setHovered({ id: node, x: event.x, y: event.y, flip: event.x > box.clientWidth - 340 }),
       );
       instance.on("leaveNode", () => setHovered(null));
-      instance.on("nodeDragStart", () => setHovered(null));
       instance.on("clickNode", ({ node }) => setPinned(node));
       instance.on("clickStage", () => setPinned(null));
+
+      // Dragging a node pulls its neighbours after it, and theirs after them,
+      // as the map springs to fit. Every link is a spring at rest at its length
+      // in the server's layout, and every node is held lightly to its place
+      // there, so the map holds still until it is pulled and keeps its shape.
+      // A dropped node is let go where it is put, held there as lightly as the
+      // rest are to their places, and settles with its neighbours.
+      type Body = { id: string; x: number; y: number; fx?: number | null; fy?: number | null; homeX: number; homeY: number };
+      const bodies = new Map<string, Body>(
+        graph.nodes.map((n) => {
+          const at = positions[n.id] ?? { x: 0, y: 0 };
+          return [n.id, { id: n.id, x: at.x, y: at.y, homeX: at.x, homeY: at.y }];
+        }),
+      );
+      const springs = graph.edges.map((e) => {
+        const [a, b] = [bodies.get(e.source)!, bodies.get(e.target)!];
+        return { source: a, target: b, rest: Math.hypot(a.x - b.x, a.y - b.y) };
+      });
+      const sim = physics
+        .forceSimulation([...bodies.values()])
+        .force("springs", physics.forceLink(springs).distance((l) => l.rest))
+        .force("homeX", physics.forceX<Body>((b) => b.homeX).strength(0.03))
+        .force("homeY", physics.forceY<Body>((b) => b.homeY).strength(0.03))
+        .alpha(0)
+        .stop()
+        .on("tick", () =>
+          g.updateEachNodeAttributes(
+            (id, a) => {
+              const b = bodies.get(id);
+              if (b && b.fx == null) {
+                a.x = b.x;
+                a.y = b.y;
+              }
+              return a;
+            },
+            { attributes: ["x", "y"] },
+          ),
+        );
+      const held = (node: string) => {
+        const b = bodies.get(node);
+        if (!b) return;
+        const at = g.getNodeAttributes(node);
+        b.x = b.fx = at.x as number;
+        b.y = b.fy = at.y as number;
+        return b;
+      };
+      instance.on("nodeDragStart", ({ node }) => {
+        setHovered(null);
+        held(node);
+        sim.alphaTarget(0.3).restart();
+      });
+      instance.on("nodeDrag", ({ node }) => held(node));
+      instance.on("nodeDragEnd", ({ node }) => {
+        const b = held(node);
+        if (b) {
+          [b.homeX, b.homeY] = [b.x, b.y];
+          b.fx = b.fy = null;
+        }
+        sim.alphaTarget(0);
+      });
+      stopPhysics = () => sim.stop();
+
       renderer.current = instance;
       drawn.current = g;
     })();
     return () => {
       cancelled = true;
+      stopPhysics?.();
       instance?.kill();
       renderer.current = null;
       drawn.current = null;
@@ -374,7 +440,7 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
               </div>
             )}
             <p className="graph-hint meta">
-              Hover over a node to read it, click to keep its card open, drag to move it, scroll to zoom.
+              Hover over a node to read it, click to keep its card open, drag it to pull its neighbours along, scroll to zoom.
             </p>
           </div>
           {view === "map" && failed && (
