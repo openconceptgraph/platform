@@ -31,25 +31,28 @@ export default async function GraphPage({ searchParams }: { searchParams: Promis
   const positions = layOut(graph);
   const others = frameworks.filter((f) => f.id !== chosen.id);
 
+  const heading = (
+    <div className="graph-heading">
+      <h1>{graph.framework.title}</h1>
+      {others.length > 0 && (
+        <span className="meta">
+          Also:{" "}
+          {others.map((f, i) => (
+            <span key={f.id}>
+              {i > 0 && " · "}
+              <Link href={`/graph?framework=${encodeURIComponent(f.slug)}`}>{f.title}</Link>
+            </span>
+          ))}
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <>
       <AppHeader name={user.name} role={user.role} />
       <main className="graph-page">
-        <div className="graph-heading">
-          <h1>{graph.framework.title}</h1>
-          {others.length > 0 && (
-            <span className="meta">
-              Also:{" "}
-              {others.map((f, i) => (
-                <span key={f.id}>
-                  {i > 0 && " · "}
-                  <Link href={`/graph?framework=${encodeURIComponent(f.slug)}`}>{f.title}</Link>
-                </span>
-              ))}
-            </span>
-          )}
-        </div>
-        <GraphExplorer key={graph.framework.id} graph={graph} positions={positions} />
+        <GraphExplorer key={graph.framework.id} graph={graph} positions={positions} heading={heading} />
       </main>
     </>
   );

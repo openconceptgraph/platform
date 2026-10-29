@@ -2,7 +2,7 @@
 
 import type { AbstractGraph, Attributes } from "graphology-types";
 import type Sigma from "sigma";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type {
   BaseGraph,
   ConceptNode,
@@ -53,7 +53,16 @@ function look(node: GraphNode, colours: Record<string, string>, relations: Relat
   return nodeLook(node, colours, relations.neededFor(node.id).length, byTerm);
 }
 
-export function GraphExplorer({ graph, positions }: { graph: BaseGraph; positions: Positions }) {
+export function GraphExplorer({
+  graph,
+  positions,
+  heading,
+}: {
+  graph: BaseGraph;
+  positions: Positions;
+  /** The page's title block, hidden with the controls when the map is expanded. */
+  heading?: ReactNode;
+}) {
   const relations = useMemo(() => new Relations(graph), [graph]);
   const colours = useMemo(() => familyColours(graph.families), [graph.families]);
   const [view, setView] = useState<"map" | "table">("map");
@@ -65,6 +74,8 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
   const [pinned, setPinned] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [colourBy, setColourBy] = useState<ColourBy>("family");
+  /** The map and its card only, filling the window: everything above the map is hidden. */
+  const [expanded, setExpanded] = useState(false);
   const colourByNow = useRef<ColourBy>("family");
   const container = useRef<HTMLDivElement>(null);
   const renderer = useRef<Renderer | null>(null);
@@ -303,10 +314,21 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
     }
   }, [colourBy, graph, colours, relations]);
 
-  // The box had no size while the table was shown.
+  // The box had no size while the table was shown, and changes size when the map is expanded.
   useEffect(() => {
     if (view === "map") renderer.current?.resize(true).refresh({ skipIndexation: true });
-  }, [view]);
+  }, [view, expanded]);
+
+  // Expanded, the map starts at the top of the page; Escape brings the controls back.
+  useEffect(() => {
+    if (!expanded) return;
+    window.scrollTo({ top: 0 });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   // Layers and the family spotlight.
   useEffect(() => {
@@ -355,78 +377,98 @@ export function GraphExplorer({ graph, positions }: { graph: BaseGraph; position
   const pinnedNode = pinned ? relations.byId.get(pinned) : undefined;
 
   return (
-    <div className="graph">
-      <Standing counts={graph.counts} seesProgress={graph.seesProgress} />
+    <div className={expanded ? "graph expanded" : "graph"}>
+      <div className="graph-top" hidden={expanded}>
+        {heading}
+        <Standing counts={graph.counts} seesProgress={graph.seesProgress} />
 
-      <div className="graph-controls">
-        <div className="segmented" role="group" aria-label="View">
-          <button type="button" aria-pressed={view === "map"} onClick={() => setView("map")}>
-            Map
-          </button>
-          <button type="button" aria-pressed={view === "table"} onClick={() => setView("table")}>
-            Table
-          </button>
-        </div>
-        {view === "map" && (
-          <>
-            <label className="toggle">
-              <input type="checkbox" checked={showLines} onChange={(e) => setShowLines(e.target.checked)} />
-              Curriculum lines
-            </label>
-            <label className="toggle">
-              <input type="checkbox" checked={showMistakes} onChange={(e) => setShowMistakes(e.target.checked)} />
-              Typical mistakes
-            </label>
-            {graph.plans.length > 0 && (
+        <div className="graph-controls">
+          <div className="segmented" role="group" aria-label="View">
+            <button type="button" aria-pressed={view === "map"} onClick={() => setView("map")}>
+              Map
+            </button>
+            <button type="button" aria-pressed={view === "table"} onClick={() => setView("table")}>
+              Table
+            </button>
+          </div>
+          {view === "map" && (
+            <>
               <label className="toggle">
-                Colour by
-                <select value={colourBy} onChange={(e) => setColourBy(e.target.value)}>
-                  <option value="family">family</option>
-                  {graph.plans.map((p) => (
-                    <option key={p.slug} value={p.slug}>
-                      term in {planName(p)}
-                    </option>
-                  ))}
-                </select>
+                <input type="checkbox" checked={showLines} onChange={(e) => setShowLines(e.target.checked)} />
+                Curriculum lines
               </label>
-            )}
-          </>
-        )}
-        <input
-          className="graph-search"
-          type="search"
-          list="graph-search-options"
-          placeholder="Find a concept, mistake or topic"
-          aria-label="Find a concept, mistake or topic"
-          onChange={(e) => {
-            const hit = searchable.find((s) => s.label === e.target.value);
-            if (hit) {
-              select(hit.id);
-              e.target.value = "";
-            }
-          }}
-        />
-        <datalist id="graph-search-options">
-          {searchable.map((s) => (
-            <option key={s.id} value={s.label} />
-          ))}
-        </datalist>
-      </div>
+              <label className="toggle">
+                <input type="checkbox" checked={showMistakes} onChange={(e) => setShowMistakes(e.target.checked)} />
+                Typical mistakes
+              </label>
+              {graph.plans.length > 0 && (
+                <label className="toggle">
+                  Colour by
+                  <select value={colourBy} onChange={(e) => setColourBy(e.target.value)}>
+                    <option value="family">family</option>
+                    {graph.plans.map((p) => (
+                      <option key={p.slug} value={p.slug}>
+                        term in {planName(p)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </>
+          )}
+          <input
+            className="graph-search"
+            type="search"
+            list="graph-search-options"
+            placeholder="Find a concept, mistake or topic"
+            aria-label="Find a concept, mistake or topic"
+            onChange={(e) => {
+              const hit = searchable.find((s) => s.label === e.target.value);
+              if (hit) {
+                select(hit.id);
+                e.target.value = "";
+              }
+            }}
+          />
+          <datalist id="graph-search-options">
+            {searchable.map((s) => (
+              <option key={s.id} value={s.label} />
+            ))}
+          </datalist>
+        </div>
 
-      <Legend
-        families={graph.families}
-        colours={colours}
-        spotlight={spotlight}
-        onSpotlight={setSpotlight}
-        seesProgress={graph.seesProgress}
-        byFamily={view === "table" || colourBy === "family"}
-      />
-      {view === "map" && colourBy !== "family" && <TermKey graph={graph} plan={colourBy} />}
+        <Legend
+          families={graph.families}
+          colours={colours}
+          spotlight={spotlight}
+          onSpotlight={setSpotlight}
+          seesProgress={graph.seesProgress}
+          byFamily={view === "table" || colourBy === "family"}
+        />
+        {view === "map" && colourBy !== "family" && <TermKey graph={graph} plan={colourBy} />}
+      </div>
 
       <div className="graph-body">
         <div className="graph-main">
           <div className="graph-stage" hidden={view !== "map" || failed}>
             <div ref={container} className="graph-canvas" aria-label="Map of the base" role="img" />
+            <button
+              type="button"
+              className="graph-expand"
+              aria-pressed={expanded}
+              onClick={() => setExpanded((e) => !e)}
+              title={expanded ? "Show the controls again (Esc)" : "Hide the controls and give the map the window"}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                <path
+                  d={expanded ? "M5 1v4H1M9 1v4h4M5 13V9H1M9 13V9h4" : "M1 5V1h4M13 5V1H9M1 9v4h4M13 9v4H9"}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                />
+              </svg>
+              {expanded ? "Show controls" : "Expand map"}
+            </button>
             {hoveredNode && hovered && (
               <div
                 className="graph-tip"

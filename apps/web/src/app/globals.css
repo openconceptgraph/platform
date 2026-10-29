@@ -712,6 +712,28 @@ input:focus {
   height: min(74vh, 780px);
   min-height: 420px;
 }
+.graph-expand {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--feint);
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 14px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.graph-expand:hover {
+  color: var(--ink);
+  border-color: var(--ink-2);
+}
+.graph.expanded .graph-canvas {
+  height: calc(100vh - 110px);
+}
 .graph-hint {
   position: absolute;
   left: 14px;

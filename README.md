@@ -56,7 +56,7 @@ pnpm dev                     # then sign in at http://localhost:3000
 
 ## The graph view
 
-Anyone signed in can open **Graph** to see a base as a map: its concepts coloured by family, the prerequisites between them, the curriculum lines that define them under their headings, and, behind a toggle, the typical mistakes. Hovering over a node shows its card; clicking keeps the card open beside the map; a family's chip picks that family out. Dragging a node pulls its neighbours after it on springs, and the map settles when it is let go. The same concepts are listed as a table for anyone who cannot use the map, which needs WebGL 2.
+Anyone signed in can open **Graph** to see a base as a map: its concepts coloured by family, the prerequisites between them, the curriculum lines that define them under their headings, and, behind a toggle, the typical mistakes. Hovering over a node shows its card; clicking keeps the card open beside the map; a family's chip picks that family out. Dragging a node pulls its neighbours after it on springs, and the map settles when it is let go. **Expand map** hides everything above the map and gives it the window, beside the card; Escape brings the controls back. The same concepts are listed as a table for anyone who cannot use the map, which needs WebGL 2.
 
 When the base has teaching plans, the map can be coloured by the term a plan teaches each concept in instead of by family, with what moves to another term against each other plan. A concept is taught when the first topic that defines it is, unless the plan places its family or the concept itself; the cards and the table say when for every plan.
 
