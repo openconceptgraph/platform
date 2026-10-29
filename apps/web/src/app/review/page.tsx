@@ -22,6 +22,7 @@ export default async function BatchesPage() {
               <div>
                 <b>{b.title}</b>
                 <div className="meta">
+                  {b.stage === "confirmation" ? "Confirmation review · " : ""}
                   {b.done} of {b.total} done
                 </div>
               </div>

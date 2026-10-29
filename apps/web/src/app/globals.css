@@ -511,6 +511,17 @@ input:focus {
 .earlier b {
   display: block;
 }
+.first-review {
+  background: var(--green-wash);
+  border-left: 4px solid var(--green);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+.first-review b {
+  display: block;
+}
 
 /* ---- Batches and sign-in ---- */
 

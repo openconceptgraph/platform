@@ -1,9 +1,10 @@
-import { type Db, schema } from "@ocg/db";
+import { type Db, type ReviewStage, schema } from "@ocg/db";
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 export interface BatchReport {
   id: string;
   title: string;
+  stage: ReviewStage;
   reviewer: string;
   createdAt: Date;
   closedAt: Date | null;
@@ -22,6 +23,7 @@ export async function batchReports(db: Db, reviewerId?: string): Promise<BatchRe
   const rows = await db.execute<{
     id: string;
     title: string;
+    stage: ReviewStage;
     reviewer: string;
     created_at: Date;
     closed_at: Date | null;
@@ -38,7 +40,7 @@ export async function batchReports(db: Db, reviewerId?: string): Promise<BatchRe
        where j.batch_id is not null and j.covered_by_id is null
          and not exists (select 1 from judgement later where later.supersedes_id = j.id)
     )
-    select b.id, b.title, u.name || coalesce(' (' || p.public_name || ')', '') as reviewer,
+    select b.id, b.title, b.stage, u.name || coalesce(' (' || p.public_name || ')', '') as reviewer,
            b.created_at, b.closed_at,
            count(bi.object_id)::int as total,
            count(live.object_id)::int as done,
@@ -57,6 +59,7 @@ export async function batchReports(db: Db, reviewerId?: string): Promise<BatchRe
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
+    stage: r.stage,
     reviewer: r.reviewer,
     createdAt: new Date(r.created_at),
     closedAt: r.closed_at ? new Date(r.closed_at) : null,

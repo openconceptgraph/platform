@@ -23,11 +23,22 @@ export const confirmReasons = {
   },
 } as const satisfies Record<ScreenType, Record<string, string>>;
 
-export function reasonOptions(type: ScreenType) {
-  return Object.entries(confirmReasons[type]).map(([code, label]) => ({ code, label }));
+/**
+ * How a confirmation reviewer confirms by agreeing with the first reviewer,
+ * without a reason of their own (ADR-032). They may give one of the screen's
+ * own reasons instead.
+ */
+export const AGREES_WITH_REVIEW = "agrees-with-review";
+const agreeLabel = "Agrees with the review";
+
+/** The reasons a reviewer may give to confirm; agreeing with the review comes first in a confirmation. */
+export function reasonOptions(type: ScreenType, { confirming = false } = {}) {
+  const own = Object.entries(confirmReasons[type]).map(([code, label]) => ({ code, label }));
+  return confirming ? [{ code: AGREES_WITH_REVIEW, label: agreeLabel }, ...own] : own;
 }
 
 export function reasonLabel(type: ScreenType, code: string | null | undefined) {
   if (!code) return undefined;
+  if (code === AGREES_WITH_REVIEW) return agreeLabel;
   return (confirmReasons[type] as Record<string, string>)[code] ?? code;
 }

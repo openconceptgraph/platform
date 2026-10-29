@@ -25,13 +25,21 @@ export const decision = pgEnum("decision", ["confirm", "reject", "needs-change"]
 export type Decision = (typeof decision.enumValues)[number];
 
 /**
- * A set of objects put to one reviewer together, with planted controls among
- * them. Each batch suits one kind of reviewer: concept cards and prerequisite
- * links for a mathematical reviewer, typical mistakes for a classroom one.
+ * An item is confirmed once two different reviewers have confirmed it (ADR-032).
+ * A review batch puts items to their first reviewer; a confirmation batch puts
+ * items that passed review to a second, who sees the first one's decision.
+ */
+export const reviewStage = pgEnum("review_stage", ["review", "confirmation"]);
+export type ReviewStage = (typeof reviewStage.enumValues)[number];
+
+/**
+ * A set of objects put to one reviewer together, at one stage, sometimes with
+ * planted controls among them. Any reviewer may be given any screen.
  */
 export const batch = pgTable("batch", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: text("title").notNull(),
+  stage: reviewStage("stage").notNull().default("review"),
   /** The reviewer who judges it. Only they may record judgements in it. */
   assignedTo: text("assigned_to")
     .notNull()

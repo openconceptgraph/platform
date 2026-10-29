@@ -1,4 +1,4 @@
-import type { Db, ObjectKind } from "@ocg/db";
+import type { Db, ObjectKind, ReviewStage } from "@ocg/db";
 import { type SQL, sql } from "drizzle-orm";
 import type { ScreenType } from "@/review/reasons";
 import type { NewBatchItem } from "./create-batch";
@@ -20,15 +20,22 @@ export interface PlannedItem extends NewBatchItem {
 }
 
 /**
- * Items ready for review, in curriculum order: still proposed, not decided on
- * their current revision, not waiting in an open batch, and not planted.
+ * Items ready for a stage, in curriculum order: still proposed, not waiting in
+ * an open batch, and not planted. For review, not yet decided on their current
+ * revision. For confirmation, confirmed by one reviewer, objected to by nobody,
+ * and not yet judged by the reviewer who is to confirm them.
  * Within a concept, its card comes before its prerequisite links and mistakes.
  * Topics, if given, are the curriculum's own topic codes ("1.3").
  */
 export async function candidates(
   db: Db,
-  q: { frameworkId: string; screens: ScreenType[]; topics?: string[] },
+  q: { frameworkId: string; screens: ScreenType[]; topics?: string[]; stage?: ReviewStage; reviewerId?: string },
 ): Promise<Candidate[]> {
+  if (q.stage === "confirmation" && !q.reviewerId) {
+    throw new Error("a confirmation batch needs the reviewer who is to confirm");
+  }
+  const ready = (id: SQL, revision: SQL) =>
+    q.stage === "confirmation" ? readyToConfirm(id, revision, q.reviewerId!) : readyToReview(id, revision);
   const parts: SQL[] = [];
   if (q.screens.includes("card")) {
     parts.push(sql`
@@ -69,10 +76,11 @@ export async function candidates(
 }
 
 /**
- * A batch for one reviewer: up to `size` items. Controls are optional, chosen
- * by an admin to calibrate a new reviewer: `controls` of them, planted items
- * this reviewer has not seen, placed at random among the real items but never
- * first or last. None by default.
+ * A batch for one reviewer at one stage: up to `size` items. Controls are
+ * optional, chosen by an admin to calibrate a new reviewer: `controls` of them,
+ * planted items this reviewer has not seen, placed at random among the real
+ * items but never first or last. None by default, and none yet in confirmation
+ * batches, where a control would need a first review to show.
  */
 export async function planBatch(
   db: Db,
@@ -81,12 +89,16 @@ export async function planBatch(
     reviewerId: string;
     screens: ScreenType[];
     topics?: string[];
+    stage?: ReviewStage;
     size?: number;
     controls?: number;
     random?: () => number;
   },
 ): Promise<{ items: PlannedItem[]; controlsShort: number }> {
   const size = q.size ?? 20;
+  if (q.stage === "confirmation" && (q.controls ?? 0) > 0) {
+    throw new Error("planted controls go in review batches only, for now");
+  }
   const wanted = Math.min(q.controls ?? 0, size);
   const random = q.random ?? Math.random;
 
@@ -126,14 +138,36 @@ async function unseenPlants(db: Db, q: { frameworkId: string; reviewerId: string
     .filter((r) => q.screens.includes(r.screen));
 }
 
-/** Not planted, not waiting in an open batch, and not yet decided on this revision. */
-function ready(id: SQL, revision: SQL) {
+/** Not planted, and not waiting in an open batch. */
+function free(id: SQL) {
   return sql`not exists (select 1 from planted p where p.object_id = ${id})
     and not exists (select 1 from batch_item bi join batch b on b.id = bi.batch_id
-                     where bi.object_id = ${id} and b.closed_at is null)
-    and not exists (select 1 from judgement j
-                     where j.object_id = ${id} and j.object_revision = ${revision} and not j.is_control
-                       and not exists (select 1 from judgement later where later.supersedes_id = j.id))`;
+                     where bi.object_id = ${id} and b.closed_at is null)`;
+}
+
+/** Reviewers' current judgements of this revision of an object, planted controls aside. */
+function live(id: SQL, revision: SQL, condition: SQL) {
+  return sql`(select 1 from judgement j
+               where j.object_id = ${id} and j.object_revision = ${revision} and not j.is_control
+                 and not exists (select 1 from judgement later where later.supersedes_id = j.id)
+                 and ${condition})`;
+}
+
+/** Free, and not yet decided on this revision. */
+function readyToReview(id: SQL, revision: SQL) {
+  return sql`${free(id)} and not exists ${live(id, revision, sql`true`)}`;
+}
+
+/**
+ * Free, confirmed on this revision by someone else, objected to by nobody, and
+ * not yet judged by this reviewer. (A proposed item with two confirmations
+ * cannot exist: it would be confirmed.)
+ */
+function readyToConfirm(id: SQL, revision: SQL, reviewerId: string) {
+  return sql`${free(id)}
+    and exists ${live(id, revision, sql`j.decision = 'confirm'`)}
+    and not exists ${live(id, revision, sql`j.decision <> 'confirm'`)}
+    and not exists ${live(id, revision, sql`j.reviewer_id = ${reviewerId}`)}`;
 }
 
 /** Where a concept sits in the curriculum: the first line that defines it, by page and position. */

@@ -33,7 +33,8 @@ export default async function ReviewItemPage({ params }: { params: Promise<{ bat
   const item = items.find((i) => i.objectId === objectId);
   if (!item || !screenFor(item.objectKind, item.linkType)) notFound();
 
-  const evidence = await buildEvidence(db, item);
+  const confirming = batch.stage === "confirmation";
+  const evidence = await buildEvidence(db, item, confirming ? { confirming: user.id } : {});
   const token = present(batchId, user.id, evidence);
 
   const live = await liveJudgement(db, user.id, objectId);
@@ -58,8 +59,10 @@ export default async function ReviewItemPage({ params }: { params: Promise<{ bat
           <DecisionPanel
             key={`${objectId}:${live?.id ?? "new"}`}
             token={token}
-            options={reasonOptions(evidence.type)}
+            options={reasonOptions(evidence.type, { confirming: Boolean(evidence.review) })}
             earlier={earlier}
+            confirming={confirming}
+            review={evidence.review}
             covers={covers[evidence.type]}
             nextHref={next ? `/review/${batchId}/${next.objectId}` : `/review/${batchId}/done`}
           />

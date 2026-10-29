@@ -1,4 +1,4 @@
-import { type Db, type Decision, type ObjectKind, schema } from "@ocg/db";
+import { type Db, type Decision, type ObjectKind, type ReviewStage, schema } from "@ocg/db";
 import { eq, inArray } from "drizzle-orm";
 import { screenFor } from "@/review/evidence";
 
@@ -11,13 +11,13 @@ export interface NewBatchItem {
 }
 
 /**
- * Puts items to one reviewer as a batch, in the order given. Only objects with
- * a review screen of their own may be items: concepts, misconceptions and
- * prerequisite links.
+ * Puts items to one reviewer as a batch, in the order given, for a first review
+ * or a confirmation (review by default). Only objects with a review screen of
+ * their own may be items: concepts, misconceptions and prerequisite links.
  */
 export async function createBatch(
   db: Db,
-  batch: { title: string; assignedTo: string; createdBy: string; items: NewBatchItem[] },
+  batch: { title: string; assignedTo: string; createdBy: string; items: NewBatchItem[]; stage?: ReviewStage },
 ) {
   const linkIds = batch.items.filter((i) => i.objectKind === "link").map((i) => i.objectId);
   const linkTypes = new Map(
@@ -39,7 +39,12 @@ export async function createBatch(
   return db.transaction(async (tx) => {
     const [created] = await tx
       .insert(schema.batch)
-      .values({ title: batch.title, assignedTo: batch.assignedTo, createdBy: batch.createdBy })
+      .values({
+        title: batch.title,
+        stage: batch.stage ?? "review",
+        assignedTo: batch.assignedTo,
+        createdBy: batch.createdBy,
+      })
       .returning();
     await tx.insert(schema.batchItem).values(
       batch.items.map((item, ordinal) => ({

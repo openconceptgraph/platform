@@ -1,12 +1,14 @@
 import { type Db, type LangString, type ObjectKind, type ReviewStatus, schema } from "@ocg/db";
 import { type AnyColumn, and, asc, eq, inArray, ne, notExists, sql } from "drizzle-orm";
 import { publicNameOf } from "./profile";
-import type { ScreenType } from "./reasons";
+import { reasonLabel, type ScreenType } from "./reasons";
 
 // What a review screen shows about one batch item. It is built on the server,
 // rendered as it is, and stored in the judgement record as it is, so the record
 // says exactly what the reviewer saw. Deliberately absent: the AI's agreement
-// score and other reviewers' decisions, which would anchor the reviewer.
+// score, and, in a first review, other reviewers' decisions, which would anchor
+// the reviewer. A confirmation review shows the first reviewer's confirmation,
+// without their name: confirming it is the second reviewer's task (ADR-032).
 
 const { concept, document, educationLevel, family, level, link, misconception, node, planted, source, statement } =
   schema;
@@ -51,6 +53,14 @@ export interface Proposal {
   quote?: Quote;
 }
 
+/** In a confirmation review: the confirmation it asks the reviewer to confirm. */
+export interface FirstReview {
+  /** Why the first reviewer said it is right, from the screen's list. */
+  reason?: string;
+  /** Their note, if they wrote one. */
+  note?: string;
+}
+
 interface Base {
   type: ScreenType;
   /** The batch item judged. */
@@ -58,6 +68,7 @@ interface Base {
   /** Objects shown as part of it, judged with it. */
   covered: ObjectRef[];
   question: Segment[];
+  review?: FirstReview;
 }
 
 export interface PrerequisiteEvidence extends Base {
@@ -98,7 +109,50 @@ export function screenFor(kind: ObjectKind, linkType?: string | null): ScreenTyp
   return null;
 }
 
-export async function buildEvidence(db: Db, item: { objectId: string; objectKind: ObjectKind }): Promise<Evidence> {
+/**
+ * What an item's screen shows. For a confirmation review (`confirming` names
+ * the reviewer asked to confirm), it also shows another reviewer's current
+ * confirmation of the item, if there still is one.
+ */
+export async function buildEvidence(
+  db: Db,
+  item: { objectId: string; objectKind: ObjectKind },
+  opts: { confirming?: string } = {},
+): Promise<Evidence> {
+  const evidence = await screenEvidence(db, item);
+  if (!opts.confirming) return evidence;
+  const review = await firstReview(db, evidence.type, evidence.primary, opts.confirming);
+  return review ? { ...evidence, review } : evidence;
+}
+
+/**
+ * Another reviewer's live confirmation of this revision, when nobody's live
+ * judgement on it says otherwise: what a confirmation review asks the reviewer
+ * to confirm.
+ */
+async function firstReview(db: Db, type: ScreenType, primary: ObjectRef, reviewerId: string) {
+  const rows = await db.execute<{
+    decision: string;
+    reason_code: string | null;
+    reason: string | null;
+    reviewer_id: string;
+  }>(sql`
+    select j.decision, j.reason_code, j.reason, j.reviewer_id
+      from judgement j
+     where j.object_id = ${primary.id} and j.object_revision = ${primary.revision} and not j.is_control
+       and not exists (select 1 from judgement later where later.supersedes_id = j.id)
+     order by j.created_at`);
+  const others = rows.filter((r) => r.reviewer_id !== reviewerId);
+  const confirmation = others.find((r) => r.decision === "confirm");
+  if (!confirmation || others.some((r) => r.decision !== "confirm")) return undefined;
+  const review: FirstReview = {};
+  const reason = reasonLabel(type, confirmation.reason_code);
+  if (reason) review.reason = reason;
+  if (confirmation.reason) review.note = confirmation.reason;
+  return review;
+}
+
+async function screenEvidence(db: Db, item: { objectId: string; objectKind: ObjectKind }): Promise<Evidence> {
   switch (item.objectKind) {
     case "link":
       return prerequisiteEvidence(db, item.objectId);

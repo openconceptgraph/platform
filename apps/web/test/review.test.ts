@@ -20,7 +20,9 @@ const CARD = 0;
 const PREREQ = 1;
 const MISTAKE = 2;
 const PLANTED = 4;
+const OTHER_CARD = 5;
 const UNSOURCED_MISTAKE = 6;
+const OTHER_PREREQ = 7;
 
 beforeAll(async () => {
   db = await freshTestDb();
@@ -43,9 +45,29 @@ async function reviewerWithBatch() {
   return { reviewer: reviewer!, batch };
 }
 
-async function show(batchId: string, reviewerId: string, index: number) {
-  const evidence = await buildEvidence(db, items[index]!);
+async function show(batchId: string, reviewerId: string, index: number, opts: { confirming?: string } = {}) {
+  const evidence = await buildEvidence(db, items[index]!, opts);
   return { evidence, token: present(batchId, reviewerId, evidence) };
+}
+
+async function statusesOf(evidence: { primary: { id: string }; covered: { id: string }[] }) {
+  const [card] = await db.select().from(schema.concept).where(eq(schema.concept.id, evidence.primary.id));
+  const covered = await db
+    .select({ status: schema.link.status })
+    .from(schema.link)
+    .where(inArray(schema.link.id, evidence.covered.map((c) => c.id)));
+  return { item: card!.status, covered: covered.map((c) => c.status) };
+}
+
+async function confirmationBatch(reviewerId: string, index: number) {
+  const batch = await createBatch(db, {
+    title: "Confirmation",
+    stage: "confirmation",
+    assignedTo: reviewerId,
+    createdBy: reviewerId,
+    items: [items[index]!],
+  });
+  return batch;
 }
 
 describe("the evidence a screen shows", () => {
@@ -130,14 +152,11 @@ describe("recording a decision", () => {
     expect(primary.evidence).toEqual(evidence);
     expect(rows.filter((r) => r.coveredById === primary.id)).toHaveLength(4);
 
-    // One reviewer confirming, with nobody objecting, confirms the card and what it covers.
-    const [card] = await db.select().from(schema.concept).where(eq(schema.concept.id, evidence.primary.id));
-    expect(card!.status).toBe("confirmed");
-    const covered = await db
-      .select({ status: schema.link.status })
-      .from(schema.link)
-      .where(inArray(schema.link.id, evidence.covered.map((c) => c.id)));
-    expect(covered.map((c) => c.status)).toEqual(["confirmed", "confirmed", "confirmed", "confirmed"]);
+    // One reviewer's confirmation is a first review: the card waits for a second.
+    expect(await statusesOf(evidence)).toEqual({
+      item: "proposed",
+      covered: ["proposed", "proposed", "proposed", "proposed"],
+    });
   });
 
   it("needs a listed reason to confirm and written words to reject", async () => {
@@ -237,6 +256,76 @@ describe("recording a decision", () => {
     // A control measures the reviewer; it never changes the base.
     const [planted] = await db.select().from(schema.link).where(eq(schema.link.id, evidence.primary.id));
     expect(planted!.status).toBe("proposed");
+  });
+});
+
+describe("a confirmation review", () => {
+  it("shows the first reviewer's confirmation, without their name, and a second confirmation confirms", async () => {
+    const first = await reviewerWithBatch();
+    const shown = await show(first.batch.id, first.reviewer.id, OTHER_CARD);
+    await recordDecision(db, {
+      token: shown.token,
+      reviewerId: first.reviewer.id,
+      input: { decision: "confirm", reasonCode: "matches-curriculum", reason: "Exactly the CAPS wording." },
+    });
+    await saveProfile(db, first.reviewer.id, { publicName: `First ${randomUUID().slice(0, 8)}` });
+
+    const second = await reviewerWithBatch();
+    const batch = await confirmationBatch(second.reviewer.id, OTHER_CARD);
+    const { evidence, token } = await show(batch.id, second.reviewer.id, OTHER_CARD, { confirming: second.reviewer.id });
+    expect(evidence.review).toEqual({
+      reason: "Matches the curriculum lines, at the right size",
+      note: "Exactly the CAPS wording.",
+    });
+    const recorded = JSON.stringify(evidence);
+    expect(recorded).not.toContain(first.reviewer.name);
+    expect(recorded).not.toContain((await profileOf(db, first.reviewer.id))!.publicName);
+
+    const result = await recordDecision(db, {
+      token,
+      reviewerId: second.reviewer.id,
+      input: { decision: "confirm", reasonCode: "agrees-with-review" },
+    });
+    expect(result).toMatchObject({ ok: true });
+    const after = await statusesOf(evidence);
+    expect(after.item).toBe("confirmed");
+    expect(after.covered.length).toBeGreaterThan(0);
+    expect(new Set(after.covered)).toEqual(new Set(["confirmed"]));
+  });
+
+  it("is a first review again once the confirmation no longer stands, where agreeing is no reason", async () => {
+    const first = await reviewerWithBatch();
+    const shown = await show(first.batch.id, first.reviewer.id, OTHER_PREREQ);
+    await recordDecision(db, {
+      token: shown.token,
+      reviewerId: first.reviewer.id,
+      input: { decision: "confirm", reasonCode: "curriculum-says-so" },
+    });
+    // The first reviewer sees no confirmation of their own to confirm.
+    const own = await show(first.batch.id, first.reviewer.id, OTHER_PREREQ, { confirming: first.reviewer.id });
+    expect(own.evidence.review).toBeUndefined();
+
+    const objector = await reviewerWithBatch();
+    const objection = await show(objector.batch.id, objector.reviewer.id, OTHER_PREREQ);
+    await recordDecision(db, {
+      token: objection.token,
+      reviewerId: objector.reviewer.id,
+      input: { decision: "needs-change", reason: "The example belongs to the other concept." },
+    });
+
+    const second = await reviewerWithBatch();
+    const batch = await confirmationBatch(second.reviewer.id, OTHER_PREREQ);
+    const { evidence, token } = await show(batch.id, second.reviewer.id, OTHER_PREREQ, {
+      confirming: second.reviewer.id,
+    });
+    expect(evidence.review).toBeUndefined();
+    expect(
+      await recordDecision(db, {
+        token,
+        reviewerId: second.reviewer.id,
+        input: { decision: "confirm", reasonCode: "agrees-with-review" },
+      }),
+    ).toMatchObject({ ok: false, error: "Choose why it is right." });
   });
 });
 

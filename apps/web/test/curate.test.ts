@@ -87,6 +87,45 @@ describe("choosing items", () => {
   });
 });
 
+describe("choosing items to confirm", () => {
+  it("offers what one reviewer confirmed and nobody objected to, never to that reviewer", async () => {
+    const [ada, ben] = [await person("reviewer"), await person("reviewer")];
+    const firsts = await candidates(db, { frameworkId, screens: ["card"] });
+    const batch = await createBatch(db, {
+      title: "Cards",
+      assignedTo: ada.id,
+      createdBy: curatorId,
+      items: firsts.slice(0, 2),
+    });
+    for (const [item, decision] of [
+      [firsts[0]!, "confirm"],
+      [firsts[1]!, "reject"],
+    ] as const) {
+      const evidence = await buildEvidence(db, item);
+      await recordDecision(db, {
+        token: present(batch.id, ada.id, evidence),
+        reviewerId: ada.id,
+        input:
+          decision === "confirm" ? { decision, reasonCode: "matches-curriculum" } : { decision, reason: "Two concepts." },
+      });
+    }
+    await closeBatch(db, batch.id);
+
+    const confirm = (reviewerId: string) =>
+      candidates(db, { frameworkId, screens: ["card"], stage: "confirmation", reviewerId });
+    expect(labels(await confirm(ben.id))).toEqual([labels([firsts[0]!])[0]]);
+    expect(await confirm(ada.id)).toEqual([]);
+    // Nor is it offered for a first review again.
+    const again = await candidates(db, { frameworkId, screens: ["card"] });
+    expect(again.map((c) => c.objectId)).not.toContain(firsts[0]!.objectId);
+
+    await expect(
+      planBatch(db, { frameworkId, reviewerId: ben.id, screens: ["card"], stage: "confirmation", controls: 1 }),
+    ).rejects.toThrow(/review batches only/);
+    await expect(candidates(db, { frameworkId, screens: ["card"], stage: "confirmation" })).rejects.toThrow(/reviewer/);
+  });
+});
+
 describe("planning a batch", () => {
   it("mixes in planted controls, never first or last, and never the same one twice for a reviewer", async () => {
     const reviewer = await person("reviewer");

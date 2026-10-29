@@ -2,7 +2,7 @@ import { type Db, type Decision, schema } from "@ocg/db";
 import { and, desc, eq, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { ObjectRef } from "./evidence";
-import { confirmReasons } from "./reasons";
+import { AGREES_WITH_REVIEW, confirmReasons } from "./reasons";
 import { verifyPresentation } from "./token";
 
 const { judgement } = schema;
@@ -38,7 +38,8 @@ export async function recordDecision(
     return { ok: false, error: "Choose confirm, needs a change, or reject." };
   }
   const reasonCode = decision === "confirm" ? input.reasonCode : undefined;
-  if (decision === "confirm" && !(reasonCode && reasonCode in confirmReasons[evidence.type])) {
+  const agrees = Boolean(evidence.review) && reasonCode === AGREES_WITH_REVIEW;
+  if (decision === "confirm" && !agrees && !(reasonCode && reasonCode in confirmReasons[evidence.type])) {
     return { ok: false, error: "Choose why it is right." };
   }
   const reason = input.reason?.trim() || undefined;

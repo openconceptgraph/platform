@@ -1,8 +1,9 @@
 // The curator's batch tool.
 //
 //   pnpm batch create --framework <slug> --reviewer <email> --screens card,prerequisite
-//                     [--topics 1.3,2.4] [--size 20] [--title "..."] --by <email> [--dry-run]
-//                     [--controls 2]                                   (admin only)
+//                     [--stage review|confirmation] [--topics 1.3,2.4] [--size 20]
+//                     [--title "..."] --by <email> [--dry-run]
+//                     [--controls 2]                       (admin only; review batches only)
 //   pnpm batch plant-link --framework <slug> --from INT-02 --to MEA-01
 //                     --why "<the rationale reviewers see>" --note "<why it is wrong>" --by <email>
 //   pnpm batch plant-mistake --framework <slug> --statement "<the wrong rule>" [--example "..."]
@@ -11,14 +12,20 @@
 //   pnpm batch close <batch id>
 //
 // Screens: card (concept cards), prerequisite (needs links), mistake (typical
-// mistakes). A mathematical reviewer gets cards and prerequisites; a classroom
-// reviewer gets mistakes. --by names who is acting, and is recorded.
+// mistakes). Any reviewer may be given any screen. --by names who is acting,
+// and is recorded.
+//
+// Stages (ADR-032): an item is confirmed once two different reviewers have
+// confirmed it. A review batch (the default) puts items to their first
+// reviewer. A confirmation batch puts items that one reviewer has confirmed,
+// and nobody has objected to, to a second reviewer, who sees the first one's
+// decision. Give each typical mistake to at least one reviewer who has taught.
 //
 // Planted controls are optional, for an admin to test a new reviewer's first
 // batches and then stop: only an admin may plant one or put controls in a
 // batch, and batches carry none unless --controls asks for them.
 import { parseArgs } from "node:util";
-import { type Db, schema } from "@ocg/db";
+import { type Db, type ReviewStage, schema } from "@ocg/db";
 import { eq } from "drizzle-orm";
 import { createBatch, userByEmail } from "../src/curate/create-batch";
 import { plantLink, plantMistake } from "../src/curate/plant";
@@ -35,6 +42,7 @@ const { values: o, positionals } = parseArgs({
     reviewer: { type: "string" },
     by: { type: "string" },
     screens: { type: "string" },
+    stage: { type: "string" },
     topics: { type: "string" },
     size: { type: "string" },
     controls: { type: "string" },
@@ -51,6 +59,8 @@ const { values: o, positionals } = parseArgs({
 });
 
 const screenNames: ScreenType[] = ["card", "prerequisite", "mistake"];
+const stageNames: ReviewStage[] = ["review", "confirmation"];
+const stageTitles: Record<ReviewStage, string> = { review: "Review", confirmation: "Confirmation review" };
 const db = getDb();
 
 try {
@@ -91,6 +101,8 @@ async function create() {
   if (controls > 0 && !(by && can(by.role, { control: ["plant"] }))) {
     throw new Error("only an admin may put planted controls in a batch: --by must be an admin's account");
   }
+  const stage = (o.stage ?? "review") as ReviewStage;
+  if (!stageNames.includes(stage)) throw new Error(`unknown stage: ${stage}; use ${stageNames.join(" or ")}`);
   const screens = need("screens").split(",").map((s) => s.trim()) as ScreenType[];
   const unknown = screens.filter((s) => !screenNames.includes(s));
   if (unknown.length) throw new Error(`unknown screen: ${unknown.join(", ")}; use ${screenNames.join(", ")}`);
@@ -99,12 +111,14 @@ async function create() {
     frameworkId,
     reviewerId: reviewer.id,
     screens,
+    stage,
     topics: o.topics?.split(",").map((t) => t.trim()),
     size: o.size ? Number(o.size) : undefined,
     controls,
   });
   if (items.length === 0) {
-    console.log("Nothing is ready for review on those screens and topics.");
+    const what = stage === "review" ? "review" : "confirmation by this reviewer";
+    console.log(`Nothing is ready for ${what} on those screens and topics.`);
     return;
   }
   items.forEach((item, i) =>
@@ -117,8 +131,8 @@ async function create() {
     console.log("\nDry run: no batch created.");
     return;
   }
-  const title = o.title ?? `${screens.join(" and ")} · ${new Date().toISOString().slice(0, 10)}`;
-  const batch = await createBatch(db, { title, assignedTo: reviewer.id, createdBy: by!.id, items });
+  const title = o.title ?? `${stageTitles[stage]}: ${screens.join(" and ")} · ${new Date().toISOString().slice(0, 10)}`;
+  const batch = await createBatch(db, { title, stage, assignedTo: reviewer.id, createdBy: by!.id, items });
   console.log(`\nBatch "${batch.title}" (${batch.id}) with ${items.length} items given to ${reviewer.name}.`);
 }
 
@@ -164,6 +178,7 @@ async function list() {
       [
         r.id,
         r.title,
+        stageTitles[r.stage],
         r.reviewer,
         `${r.done}/${r.total} done`,
         `controls: ${c.caught} caught, ${c.missed} missed, ${c.waiting} waiting`,

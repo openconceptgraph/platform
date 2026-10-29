@@ -75,18 +75,24 @@ pnpm base draft <draft file>                    # an AI draft of concepts, prere
 
 ## Making batches
 
-A curator puts items to reviewers in batches, from the command line. `--by` names who is acting, and is recorded.
+A curator puts items to reviewers in batches, from the command line. `--by` names who is acting, and is recorded. Any reviewer may be given any screen.
+
+Every item is reviewed twice, by two different people. A **review** batch puts items to their first reviewer. A **confirmation review** batch puts items that one reviewer has confirmed, and nobody has objected to, to a second reviewer. The second reviewer sees the first one's decision and reason (not their name), and can agree in one step.
 
 ```sh
-# Preview, then create, a batch of concept cards and prerequisite links for a mathematical reviewer
+# Preview, then create, a batch of concept cards and prerequisite links for their first review
 pnpm batch create --framework za-caps/mathematics --reviewer ada@example.org \
   --screens card,prerequisite --topics 1.3 --size 20 --by you@example.org --dry-run
 
-pnpm batch list              # progress, minutes spent, and controls caught or missed
+# Put what Ada confirmed to a second reviewer
+pnpm batch create --framework za-caps/mathematics --reviewer ben@example.org \
+  --screens card,prerequisite --stage confirmation --by you@example.org
+
+pnpm batch list              # stage, progress, minutes spent, and controls caught or missed
 pnpm batch close <batch id>
 ```
 
-A batch takes the next items ready for review in curriculum order: still proposed, not yet decided on their current revision, not waiting in another open batch.
+A batch takes the next items ready for its stage in curriculum order, never items waiting in another open batch. For a review, that means items still proposed and not yet decided on their current revision. For a confirmation review, it means items confirmed by one reviewer, objected to by nobody, and not yet judged by the reviewer who is to confirm them.
 
 ### Planted controls (optional, admins only)
 
@@ -125,7 +131,7 @@ These hold whatever the application does, and the tests check each one.
 - **Changes are counted.** Each change to an object's content raises its revision. If the object had been reviewed, the change returns it to `proposed`, because what was reviewed is no longer what is stored.
 - **Every link has a source and a status,** and joins only the kinds its type allows (for example, `needs` runs from concept to concept).
 - **`needs` never loops,** even when two writers race. Planted controls are not part of the graph, so they never count.
-- **A review status follows judgements and nothing else.** Counting each reviewer's latest judgement on the current revision, an object is confirmed when every one confirms, rejected when every one rejects, and otherwise stays proposed: a change was asked for, or reviewers disagree. So one reviewer's confirmation is enough when nobody objects. Judgements on planted controls never count, so a planted item can never be confirmed into a release.
+- **A review status follows judgements and nothing else.** Counting each reviewer's latest judgement on the current revision, an object is confirmed when every one confirms and at least two reviewers have, rejected when every one rejects, and otherwise stays proposed: waiting for a second reviewer, a change was asked for, or reviewers disagree. Confirming takes two different reviewers; one rejection is enough, because a rejected object never reaches a release. Judgements on planted controls never count, so a planted item can never be confirmed into a release.
 - **The judgement record is append-only.** A judgement must be on the object's current revision and must carry a reason. The database sets its time and its control flag. Only a batch's assigned reviewer may judge in it. A change of mind is a new judgement that supersedes the old one and says why.
 
 ## Contributing

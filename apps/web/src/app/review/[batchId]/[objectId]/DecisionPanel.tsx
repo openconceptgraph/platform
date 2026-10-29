@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import type { FirstReview } from "@/review/evidence";
+import { AGREES_WITH_REVIEW } from "@/review/reasons";
 import { decide } from "../../actions";
 
 type Choice = "confirm" | "needs-change" | "reject";
@@ -19,6 +21,8 @@ const choices: { value: Choice; label: string; icon: string }[] = [
   { value: "reject", label: "No, reject", icon: "✕" },
 ];
 
+const agreeChoices = choices.map((c) => (c.value === "confirm" ? { ...c, label: "Yes, agree" } : c));
+
 const decided: Record<Choice, string> = {
   confirm: "You confirmed it",
   "needs-change": "You asked for a change",
@@ -29,29 +33,51 @@ export function DecisionPanel({
   token,
   options,
   earlier,
+  confirming = false,
+  review,
   covers,
   nextHref,
 }: {
   token: string;
   options: { code: string; label: string }[];
   earlier?: Earlier;
+  /** A confirmation review: the item was put to this reviewer to confirm another reviewer's decision. */
+  confirming?: boolean;
+  /** The confirmation to confirm; absent if the first reviewer has since changed their mind. */
+  review?: FirstReview;
   covers?: string;
   nextHref: string;
 }) {
   const [state, action, pending] = useActionState(decide.bind(null, token), undefined);
   const [changing, setChanging] = useState(!earlier);
   const [choice, setChoice] = useState<Choice | null>(null);
-  const [code, setCode] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(review ? AGREES_WITH_REVIEW : null);
   const [reason, setReason] = useState("");
 
   const reasonRequired = choice !== null && (choice !== "confirm" || Boolean(earlier));
   const ready =
     choice !== null && (choice !== "confirm" || code !== null) && (!reasonRequired || reason.trim() !== "");
 
+  const firstReview = confirming && (
+    <div className="first-review">
+      {review ? (
+        <>
+          <b>A reviewer confirmed it</b>
+          {review.reason && <div>{review.reason}</div>}
+          {review.note && <div>“{review.note}”</div>}
+          <div className="meta">Agree if you see it the same way; if not, say why.</div>
+        </>
+      ) : (
+        <div>The first reviewer’s confirmation no longer stands, so decide it as a first review.</div>
+      )}
+    </div>
+  );
+
   if (!changing && earlier) {
     return (
       <div className="panel decide">
         <h2>Your decision</h2>
+        {firstReview}
         <div className="earlier">
           <b>{decided[earlier.decision]}</b>
           {earlier.reasonLabel && <div>{earlier.reasonLabel}</div>}
@@ -70,9 +96,10 @@ export function DecisionPanel({
 
   return (
     <form action={action} className="panel decide">
-      <h2>Your decision</h2>
+      <h2>{review ? "Your confirmation" : "Your decision"}</h2>
+      {firstReview}
       <div className="choices">
-        {choices.map((c) => (
+        {(review ? agreeChoices : choices).map((c) => (
           <button
             key={c.value}
             type="button"
@@ -92,7 +119,7 @@ export function DecisionPanel({
       {choice === "confirm" && (
         <div className="reason">
           <fieldset>
-            <legend>Why is it right?</legend>
+            <legend>{review ? "Why?" : "Why is it right?"}</legend>
             {options.map((o) => (
               <label key={o.code} className="option">
                 <input

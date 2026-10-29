@@ -7,6 +7,7 @@ export function EvidenceView({ evidence, position, total }: { evidence: Evidence
   return (
     <div>
       <div className="kicker">
+        {evidence.review ? "Confirmation review · " : ""}
         {kickers[evidence.type]} · item {position} of {total}
       </div>
       <Question segments={evidence.question} />
