@@ -10,6 +10,7 @@ The software behind OpenConceptGraph: a review workbench, a publishing pipeline,
 apps/web           Next.js app: the review workbench and graph view so far; the API and explorer later
 packages/db        Drizzle schema, migrations and the database's own rules
 packages/pipeline  From a curriculum's files to the working database: check, import, draft
+packages/overlay   A client's overlay in its own workspace database: records, import, export
 scripts/           local-pg.sh: a private Postgres for development and tests
 ```
 
@@ -99,6 +100,19 @@ With `--record`, a check that finds no errors is recorded against each document 
 Planted controls and retired objects are left out. Given the release before it (`--previous`), it refuses to drop an object that release held unless the object has been retired. The base's `release.json` gives the title, licence, credit lines and review policy. The same database gives the same bytes. The validator is a built checkout of the spec repository: `OCG_SPEC_DIR`, or `../spec` beside this repository, as the workspace keeps it.
 
 With `--draft`, it builds a **draft bundle** instead, for a client's private workspace or a tool that cannot wait for two reviewers: the same layout, with proposed families, concepts, mistakes and links beside confirmed ones (never rejected ones), each with its review so far: its status and the public names of whoever has confirmed it. Its version is marked draft (`0.1.0-draft.1`) and its manifest says `base-draft`. A draft holds AI drafts nobody may yet have reviewed, so it is never published: the command refuses to write one inside a git repository, and the specification's validator checks it only as a draft and refuses it as a release.
+
+## Overlays
+
+A client aligns its own artefacts (lessons, videos, questions, reference notes) to a base in an **overlay**, kept in the client's own workspace database, never the steward's: one client per workspace. `packages/overlay` holds the records the [specification](https://github.com/openconceptgraph/spec) defines (`docs/overlay.md`): the client profile with its kinds of artefact and the base release it is pinned to, the artefacts, their alignments into the base, and the client's own plans. Every profile has a kind for reference material, which `explains` concepts, so that what is taught can be grounded in approved sources.
+
+```sh
+pnpm overlay import <bundle> [--base <release or draft>]   # new records added, changed ones updated, none deleted
+pnpm overlay export --out <folder> [--base <release or draft>]
+```
+
+Both check the bundle with the specification's validator, against the pinned base when it is given. An import must be the workspace's own client, pinned to the same base release; re-pinning is a separate step. A bundle may hold only part of the overlay, such as lessons a tool has just drafted: what it holds is added or updated, and the rest is kept. An export holds everything, in a fixed order, so the same workspace gives the same bytes. A client's overlay is its own, so neither command writes inside a git repository, and `OVERLAY_DATABASE_URL` may not be the steward's working database.
+
+The workspace database keeps these rules itself: one client per database; an alignment carries only the types its artefact's kind allows, and points at the kind of base object its type allows; an AI alignment names its model and prompt version, and a person's names the person.
 
 ## Making batches
 
