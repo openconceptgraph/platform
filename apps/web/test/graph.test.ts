@@ -144,24 +144,33 @@ describe("review status on the graph", () => {
 });
 
 describe("teaching plans on the graph", () => {
-  /** Two invented plans: one places topics by term, the other also by week, and one family directly. */
+  /**
+   * Two invented plans: one places topics by term, the other also by week, and
+   * one family directly. The example's integers are Grade 7 lines, its
+   * equations Grade 8; the yearly plan also places integers in Grade 8.
+   */
   async function plans() {
     const { node, family, educationLevel, teachingPlan, placement } = schema;
-    const [grade8] = await db
-      .select()
-      .from(educationLevel)
-      .where(and(eq(educationLevel.frameworkId, frameworkId), eq(educationLevel.code, "8")));
+    const grade = async (code: string) =>
+      (await db.select().from(educationLevel).where(and(eq(educationLevel.frameworkId, frameworkId), eq(educationLevel.code, code))))[0]!;
+    const [grade7, grade8] = [await grade("7"), await grade("8")];
     const nodeId = async (code: string) => (await db.select().from(node).where(eq(node.humanCode, code)))[0]!.id;
     const [mea] = await db.select().from(family).where(and(eq(family.frameworkId, frameworkId), eq(family.humanCode, "MEA")));
     const plan = async (slug: string, title: string) =>
       (await db.insert(teachingPlan).values({ frameworkId, slug, title: { en: title } }).returning())[0]!;
     const yearly = await plan("yearly", "Yearly plan: terms and hours");
     const weekly = await plan("weekly", "Weekly plan: terms, weeks and hours");
-    const place = (planId: string, targetId: string, targetKind: "node" | "family", at: { term: number; weekStart?: number; weekEnd?: number; hours?: string }) =>
-      db.insert(placement).values({ teachingPlanId: planId, targetId, targetKind, educationLevelId: grade8!.id, ...at });
-    await place(yearly.id, await nodeId("1.3"), "node", { term: 1, hours: "9.0" });
+    const place = (
+      planId: string,
+      targetId: string,
+      targetKind: "node" | "family",
+      at: { term: number; weekStart?: number; weekEnd?: number; hours?: string },
+      level = grade8,
+    ) => db.insert(placement).values({ teachingPlanId: planId, targetId, targetKind, educationLevelId: level.id, ...at });
+    await place(yearly.id, await nodeId("1.3"), "node", { term: 3, hours: "6.0" });
+    await place(yearly.id, await nodeId("1.3"), "node", { term: 1, hours: "9.0" }, grade7);
     await place(yearly.id, await nodeId("2.4"), "node", { term: 2 });
-    await place(weekly.id, await nodeId("1.3"), "node", { term: 1, weekStart: 3, weekEnd: 4, hours: "9.0" });
+    await place(weekly.id, await nodeId("1.3"), "node", { term: 1, weekStart: 3, weekEnd: 4, hours: "9.0" }, grade7);
     await place(weekly.id, await nodeId("2.4"), "node", { term: 3, weekStart: 1, weekEnd: 1 });
     await place(weekly.id, mea!.id, "family", { term: 4 });
   }
@@ -170,16 +179,18 @@ describe("teaching plans on the graph", () => {
     await plans();
     const graph = await graphFor(false);
     expect(graph.plans.map((p) => p.slug)).toEqual(["yearly", "weekly"]);
+    expect(graph.grades).toEqual(["Grade 7", "Grade 8"]);
+    // Through the topic in the grade of the lines that define it: Grade 7's integers, not Grade 8's.
     expect((byCode(graph, "INT-03") as ConceptNode).when).toEqual({
-      yearly: { term: 1, weekStart: null, weekEnd: null, hours: 9, of: "1.3 Integers" },
-      weekly: { term: 1, weekStart: 3, weekEnd: 4, hours: 9, of: "1.3 Integers" },
+      yearly: { grade: "Grade 7", term: 1, weekStart: null, weekEnd: null, hours: 9, of: "1.3 Integers" },
+      weekly: { grade: "Grade 7", term: 1, weekStart: 3, weekEnd: 4, hours: 9, of: "1.3 Integers" },
     });
-    expect((byCode(graph, "ALG-05") as ConceptNode).when.weekly).toMatchObject({ term: 3, of: "2.4 Equations" });
+    expect((byCode(graph, "ALG-05") as ConceptNode).when.weekly).toMatchObject({ grade: "Grade 8", term: 3, of: "2.4 Equations" });
     expect((byCode(graph, "MEA-01") as ConceptNode).when).toEqual({
-      weekly: { term: 4, weekStart: null, weekEnd: null, hours: null, of: "MEA" },
+      weekly: { grade: "Grade 8", term: 4, weekStart: null, weekEnd: null, hours: null, of: "MEA" },
     });
-    // A heading is taught when it, or a heading above it, is placed.
-    expect(graph.nodes.find((n) => n.kind === "topic" && n.code === "1.3")).toMatchObject({ when: { yearly: { term: 1 } } });
+    // A heading is taught when it, or a heading above it, is placed: first in the youngest grade.
+    expect(graph.nodes.find((n) => n.kind === "topic" && n.code === "1.3")).toMatchObject({ when: { yearly: { grade: "Grade 7", term: 1 } } });
     expect(graph.nodes.find((n) => n.kind === "topic" && n.code === "1")).toMatchObject({ when: {} });
   });
 
@@ -188,15 +199,36 @@ describe("teaching plans on the graph", () => {
     const graph = await graphFor(false);
     const changes = termChanges(graph, "yearly", "weekly");
     expect(changes.map((c) => ({ ...c, concepts: c.concepts.map((n) => n.code) }))).toEqual([
-      { of: "2.4 Equations", fromTerm: 2, toTerm: 3, concepts: ["ALG-05"] },
+      { of: "2.4 Equations", grade: "Grade 8", fromTerm: 2, toTerm: 3, concepts: ["ALG-05"] },
     ]);
     expect(termChanges(graph, "weekly", "weekly")).toEqual([]);
   });
 
+  it("never count a concept placed in two different grades as moving term", () => {
+    const concept: ConceptNode = {
+      kind: "concept",
+      id: "c",
+      code: "INT-02",
+      title: "Add integers",
+      description: null,
+      conceptKind: null,
+      isGateway: false,
+      family: null,
+      status: "proposed",
+      when: {
+        caps: { grade: "Grade 7", term: 4, weekStart: null, weekEnd: null, hours: 9, of: "1.3 Integers" },
+        atp: { grade: "Grade 8", term: 1, weekStart: 3, weekEnd: 4, hours: 9, of: "1.3 Integers" },
+      },
+    };
+    expect(termChanges({ nodes: [concept] }, "caps", "atp")).toEqual([]);
+  });
+
   it("describe a placement in words, and colour a concept by its term", () => {
-    const at = { term: 2, weekStart: 1, weekEnd: 2, hours: 9, of: "1.2 Exponents" };
+    const at = { grade: "Grade 8", term: 2, weekStart: 1, weekEnd: 2, hours: 9, of: "1.2 Exponents" };
     expect(whenText(at)).toBe("Term 2, weeks 1–2");
     expect(whenText(at, { short: true })).toBe("T2 wk 1–2");
+    expect(whenText(at, { grade: true })).toBe("Grade 8, Term 2, weeks 1–2");
+    expect(whenText(at, { short: true, grade: true })).toBe("Gr 8 T2 wk 1–2");
     expect(whenText({ ...at, weekEnd: 1 })).toBe("Term 2, week 1");
     expect(whenText({ ...at, weekStart: null, weekEnd: null })).toBe("Term 2");
     expect(whenText(undefined)).toBe("not placed");

@@ -658,7 +658,7 @@ function Tip({ node, relations, graph }: { node: GraphNode; relations: Relations
           </div>
           {graph.plans.length > 0 && (
             <div className="meta">
-              {graph.plans.map((p) => `${planName(p)}: ${whenText(node.when[p.slug], { short: true })}`).join(" · ")}
+              {graph.plans.map((p) => `${planName(p)}: ${whenText(node.when[p.slug], { short: true, grade: graph.grades.length > 1 })}`).join(" · ")}
             </div>
           )}
         </>
@@ -755,7 +755,7 @@ function ConceptCard({
       </p>
       {node.description && <p>{node.description}</p>}
 
-      <WhenTaught plans={graph.plans} when={node.when} />
+      <WhenTaught plans={graph.plans} when={node.when} grades={graph.grades} />
 
       <h3>What the curriculum says</h3>
       {lines.length ? (
@@ -826,7 +826,7 @@ function TopicCard({
       <h2>
         {node.code} {node.title}
       </h2>
-      <WhenTaught plans={graph.plans} when={node.when} />
+      <WhenTaught plans={graph.plans} when={node.when} grades={graph.grades} />
       {headings.length > 0 && <RelatedList title="Under it" items={headings} empty="" onSelect={onSelect} />}
       {lines > 0 && (
         <p className="meta">
@@ -927,7 +927,7 @@ function ConceptTable({ graph, relations, onSelect }: { graph: BaseGraph; relati
               <td>{relations.prerequisites(c.id).map((p) => p.node.code).join(", ") || "—"}</td>
               <td>{relations.mistakes(c.id).length}</td>
               {graph.plans.map((p) => (
-                <td key={p.slug}>{whenText(c.when[p.slug], { short: true })}</td>
+                <td key={p.slug}>{whenText(c.when[p.slug], { short: true, grade: graph.grades.length > 1 })}</td>
               ))}
             </tr>
           ))}
@@ -938,7 +938,7 @@ function ConceptTable({ graph, relations, onSelect }: { graph: BaseGraph; relati
 }
 
 /** When each teaching plan teaches a concept or heading, and what the plan places to teach it. */
-function WhenTaught({ plans, when }: { plans: TeachingPlan[]; when: Record<string, Placed> }) {
+function WhenTaught({ plans, when, grades }: { plans: TeachingPlan[]; when: Record<string, Placed>; grades: string[] }) {
   if (plans.length === 0) return null;
   return (
     <>
@@ -948,7 +948,7 @@ function WhenTaught({ plans, when }: { plans: TeachingPlan[]; when: Record<strin
           const placed = when[p.slug];
           return (
             <li key={p.slug}>
-              <b>{planName(p)}</b>: {whenText(placed)}
+              <b>{planName(p)}</b>: {whenText(placed, { grade: grades.length > 1 })}
               {placed && (
                 <div className="rationale">
                   {placed.of}
@@ -967,6 +967,7 @@ function WhenTaught({ plans, when }: { plans: TeachingPlan[]; when: Record<strin
 function TermKey({ graph, plan }: { graph: BaseGraph; plan: string }) {
   const chosen = graph.plans.find((p) => p.slug === plan);
   if (!chosen) return null;
+  const grades = graph.grades.length > 1;
   return (
     <div className="graph-term-key">
       <div className="keys meta">
@@ -987,11 +988,11 @@ function TermKey({ graph, plan }: { graph: BaseGraph; plan: string }) {
           return (
             <p key={other.slug} className="meta">
               {changes.length === 0
-                ? `Every concept both plans place is taught in the same term as in ${planName(other)}.`
+                ? `Every concept both plans place${grades ? " in the same grade" : ""} is taught in the same term as in ${planName(other)}.`
                 : `Against ${planName(other)}: ${changes
                     .map(
                       (c) =>
-                        `${c.of} (${c.concepts.length} concept${c.concepts.length === 1 ? "" : "s"}) moves from Term ${c.fromTerm} to Term ${c.toTerm}`,
+                        `${c.of}${grades ? `, ${c.grade}` : ""} (${c.concepts.length} concept${c.concepts.length === 1 ? "" : "s"}) moves from Term ${c.fromTerm} to Term ${c.toTerm}`,
                     )
                     .join("; ")}.`}
             </p>

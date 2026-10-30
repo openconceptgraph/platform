@@ -97,6 +97,8 @@ export interface Tally {
  * it is, unless the plan places the concept or its family itself.
  */
 export interface Placed {
+  /** The grade the plan teaches it in: "Grade 8". */
+  grade: string;
   term: number | null;
   weekStart: number | null;
   weekEnd: number | null;
@@ -117,6 +119,8 @@ export interface BaseGraph {
   framework: { id: string; slug: string; title: string };
   /** In the order they were added: a curriculum's own plan before later ones. */
   plans: TeachingPlan[];
+  /** The grades the plans place things in, youngest first: "Grade 7", "Grade 8". */
+  grades: string[];
   /** In curriculum order: the order of each family's first concept. */
   families: { code: string; title: string }[];
   nodes: GraphNode[];
@@ -167,10 +171,12 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
     node_id: string | null;
     parent_id: string | null;
     document: string;
+    grade: string | null;
   }>(sql`
     select s.id, s.human_code as code, s.text, s.page, s.statement_type, s.is_revision, s.node_id, s.parent_id,
-           d.title as document
+           d.title as document, el.title ->> 'en' as grade
       from statement s join document d on d.id = s.document_id
+      left join education_level el on el.id = s.education_level_id
      where d.framework_id = ${frameworkId} and ${current(sql`s.id`)}
        and (s.statement_type = 'content'
             or exists (select 1 from link l where l.link_type = 'defines' and l.from_id = s.id and l.status <> 'rejected'))
@@ -237,15 +243,17 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
   const placements = await db.execute<{
     slug: string;
     target_id: string;
+    grade: string;
     term: number | null;
     week_start: number | null;
     week_end: number | null;
     hours: number | null;
   }>(sql`
-    select tp.slug, p.target_id, p.term, p.week_start, p.week_end, p.hours::float8 as hours
+    select tp.slug, p.target_id, el.title ->> 'en' as grade, p.term, p.week_start, p.week_end, p.hours::float8 as hours
       from placement p join teaching_plan tp on tp.id = p.teaching_plan_id
+      join education_level el on el.id = p.education_level_id
      where tp.framework_id = ${frameworkId} and ${current(sql`p.id`)}
-     order by p.term nulls last, p.week_start nulls last, p.ordinal`);
+     order by el.ordinal, p.term nulls last, p.week_start nulls last, p.ordinal`);
 
   // Headings that hold a line on the map, and the headings above them.
   const headingById = new Map(headings.map((h) => [h.id, h]));
@@ -257,41 +265,50 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
   }
   const lineIds = new Set(lines.map((l) => l.id));
 
-  // Each plan's earliest placement of each target, and when each node and concept is taught.
-  const placedAt = new Map<string, Map<string, (typeof placements)[number]>>();
+  // Each plan's placements of each target, youngest grade and earliest term first, and
+  // when each node and concept is taught. A topic such as "1.3 Integers" may be
+  // placed once for each grade that teaches it.
+  const placedAt = new Map<string, Map<string, (typeof placements)[number][]>>();
   for (const p of placements) {
-    const byPlan = placedAt.get(p.target_id) ?? new Map();
-    if (!byPlan.has(p.slug)) byPlan.set(p.slug, p);
+    const byPlan = placedAt.get(p.target_id) ?? new Map<string, (typeof placements)[number][]>();
+    byPlan.set(p.slug, [...(byPlan.get(p.slug) ?? []), p]);
     placedAt.set(p.target_id, byPlan);
   }
-  /** For each plan, the first of these targets it places. */
-  const whenOf = (targets: { id: string; of: string }[]) => {
+  /**
+   * For each plan, the first of these targets it places: in the grade given,
+   * when a target is a heading reached from a line of that grade; otherwise in
+   * the youngest grade it places it in.
+   */
+  const whenOf = (targets: Target[]) => {
     const when: Record<string, Placed> = {};
     for (const plan of plans) {
       for (const t of targets) {
-        const p = placedAt.get(t.id)?.get(plan.slug);
+        const p = placedAt.get(t.id)?.get(plan.slug)?.find((x) => !t.grade || x.grade === t.grade);
         if (p) {
-          when[plan.slug] = { term: p.term, weekStart: p.week_start, weekEnd: p.week_end, hours: p.hours, of: t.of };
+          when[plan.slug] = { grade: p.grade, term: p.term, weekStart: p.week_start, weekEnd: p.week_end, hours: p.hours, of: t.of };
           break;
         }
       }
     }
     return when;
   };
-  /** A heading and the headings above it, as placement targets. */
-  const headingAndAbove = (id: string | null) => {
-    const out: { id: string; of: string }[] = [];
-    for (let at = id; at; at = headingById.get(at)?.parent_id ?? null) out.push({ id: at, of: headingLabel(headingById.get(at))! });
+  /** A heading and the headings above it, as placement targets, for lines of the grade given. */
+  const headingAndAbove = (id: string | null, grade?: string | null) => {
+    const out: Target[] = [];
+    for (let at = id; at; at = headingById.get(at)?.parent_id ?? null) {
+      out.push({ id: at, of: headingLabel(headingById.get(at))!, grade: grade ?? undefined });
+    }
     return out;
   };
   const lineOrder = new Map(lines.map((l, i) => [l.id, i]));
   const lineById = new Map(lines.map((l) => [l.id, l]));
-  const definingHeadings = new Map<string, { id: string; of: string }[]>();
+  const definingHeadings = new Map<string, Target[]>();
   for (const l of links
     .filter((l) => l.type === "defines" && lineById.has(l.from_id))
     .sort((a, b) => lineOrder.get(a.from_id)! - lineOrder.get(b.from_id)!)) {
     const list = definingHeadings.get(l.to_id) ?? [];
-    list.push(...headingAndAbove(lineById.get(l.from_id)!.node_id));
+    const line = lineById.get(l.from_id)!;
+    list.push(...headingAndAbove(line.node_id, line.grade));
     definingHeadings.set(l.to_id, list);
   }
 
@@ -391,6 +408,7 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
   return {
     framework,
     plans: [...plans],
+    grades: [...new Set(placements.map((p) => p.grade))],
     families,
     nodes,
     edges,
@@ -401,6 +419,13 @@ export async function buildGraph(db: Db, frameworkId: string, opts: { seesProgre
     },
     seesProgress: opts.seesProgress,
   };
+}
+
+/** Something a plan may place, and when it is a heading reached from a line, that line's grade. */
+interface Target {
+  id: string;
+  of: string;
+  grade?: string;
 }
 
 function headingLabel(heading: { code: string | null; title: string } | undefined) {
