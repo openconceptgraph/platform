@@ -417,3 +417,22 @@ describe("public names", () => {
     expect(JSON.stringify(e)).not.toContain(reviewer.name);
   });
 });
+
+describe("a concept's levels", () => {
+  it("are decided with its card, which shows them", async () => {
+    const card = items[CARD]!;
+    const [level] = await db
+      .insert(schema.level)
+      .values({ conceptId: card.objectId, ordinal: 1, title: { en: "with numbers up to 20" } })
+      .returning();
+    const { reviewer, batch } = await reviewerWithBatch();
+    const { evidence, token } = await show(batch.id, reviewer.id, CARD);
+    expect((evidence as CardEvidence).concept.levels).toEqual(["with numbers up to 20"]);
+    expect(evidence.covered).toContainEqual({ id: level!.id, kind: "level", revision: 1 });
+
+    await recordDecision(db, { token, reviewerId: reviewer.id, input: { decision: "confirm", reasonCode: "matches-curriculum" } });
+    const [onLevel] = await db.select().from(schema.judgement).where(and(eq(schema.judgement.reviewerId, reviewer.id), eq(schema.judgement.objectId, level!.id)));
+    expect(onLevel).toMatchObject({ objectKind: "level", decision: "confirm" });
+    expect(onLevel?.coveredById).not.toBeNull();
+  });
+});

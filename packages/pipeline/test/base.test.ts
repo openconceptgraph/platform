@@ -257,4 +257,43 @@ describe("loading an AI draft", () => {
     await writeFile(file, json(d));
     await expect(readDraft(file)).rejects.toThrow(/SGN-02: no typical mistake/);
   });
+
+  it("loads a concept's levels in order, a mistake a publication documents, and a prerequisite the curriculum states", async () => {
+    const d = draft();
+    d.concepts[0]!.levels = [{ title: { en: "a positive and a negative number" } }, { title: { en: "two negative numbers" } }];
+    d.misconceptions[1]!.publication = { citation: "Example, A. (2020). Signs and their rules. Journal of Examples, 1(1), 1-20.", url: "https://example.org/signs" };
+    d.needs[0]!.evidence = "8/1.3/n01";
+    const report = await loadDraft(db, d);
+    expect(report).toMatchObject({ levels: 2, unsourcedMistakes: 0 });
+
+    const [sgn01] = await db.select().from(schema.concept).where(eq(schema.concept.humanCode, "SGN-01"));
+    const levels = await db.select().from(schema.level).where(eq(schema.level.conceptId, sgn01!.id)).orderBy(schema.level.ordinal);
+    expect(levels.map((l) => [l.ordinal, l.title.en, l.status])).toEqual([
+      [1, "a positive and a negative number", "proposed"],
+      [2, "two negative numbers", "proposed"],
+    ]);
+    const [mistake] = await db.select().from(schema.misconception).where(eq(schema.misconception.humanCode, "MIS-SGN-02"));
+    const [publication] = await db.select().from(schema.source).where(eq(schema.source.id, mistake!.sourceId!));
+    expect(publication).toMatchObject({ kind: "publication", url: "https://example.org/signs" });
+    const [needs] = await db.select().from(schema.link).where(eq(schema.link.linkType, "needs"));
+    const [stated] = await db.select().from(schema.source).where(eq(schema.source.id, needs!.sourceId));
+    expect(stated?.kind).toBe("statement");
+
+    // Loaded again, a level is updated in place, never duplicated.
+    d.concepts[0]!.levels[1] = { title: { en: "two negative integers" } };
+    await loadDraft(db, d);
+    const after = await db.select().from(schema.level).where(eq(schema.level.conceptId, sgn01!.id)).orderBy(schema.level.ordinal);
+    expect(after.map((l) => [l.title.en, l.revision])).toEqual([
+      ["a positive and a negative number", 1],
+      ["two negative integers", 2],
+    ]);
+  });
+
+  it("refuses a mistake given two sources", async () => {
+    const file = path.join(dir, "draft.json");
+    const d = draft();
+    d.misconceptions[0]!.publication = { citation: "Example, A. (2020). Signs." };
+    await writeFile(file, json(d));
+    await expect(readDraft(file)).rejects.toThrow(/MIS-SGN-01: cites both/);
+  });
 });

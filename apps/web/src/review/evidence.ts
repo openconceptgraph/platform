@@ -264,15 +264,19 @@ async function cardEvidence(db: Db, conceptId: string): Promise<CardEvidence> {
     )
     .orderBy(asc(misconception.humanCode));
   const levels = await db
-    .select({ title: level.title })
+    .select({ id: level.id, revision: level.revision, title: level.title })
     .from(level)
-    .where(eq(level.conceptId, c.id))
+    .where(and(eq(level.conceptId, c.id), ne(level.status, "rejected")))
     .orderBy(asc(level.ordinal));
 
   return {
     type: "card",
     primary: { id: c.id, kind: "concept", revision: c.revision },
-    covered: [...defines, ...(partOf ? [partOf] : [])].map((l) => ({ id: l.id, kind: "link", revision: l.revision })),
+    // The card shows its levels, so deciding it decides them too.
+    covered: [
+      ...[...defines, ...(partOf ? [partOf] : [])].map((l): ObjectRef => ({ id: l.id, kind: "link", revision: l.revision })),
+      ...levels.map((l): ObjectRef => ({ id: l.id, kind: "level", revision: l.revision })),
+    ],
     question: [
       { text: "Is this " },
       { text: "one concept", em: true },

@@ -3,11 +3,13 @@ import { type Db, schema } from "@ocg/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
-// Loads an AI draft of a base's interpretation: families, concepts, their
-// prerequisite links and typical mistakes, each link sourced to the drafting
-// run (model and prompt version) and every mistake to the curriculum note
-// that names it, or to nothing, which flags it unsourced. Everything loads as
-// proposed; only reviewers' judgements change that.
+// Loads an AI draft of a base's interpretation: families, concepts with their
+// levels, prerequisite links and typical mistakes. Each link is sourced to the
+// drafting run (model and prompt version), except a prerequisite the
+// curriculum itself states, which cites that statement. Each mistake cites the
+// curriculum note that names it, or a publication that documents it, or
+// nothing, which flags it unsourced. Everything loads as proposed; only
+// reviewers' judgements change that.
 //
 // Objects are matched by code and links by type and ends, so loading a
 // revised draft updates what changed. The database then raises the revision
@@ -34,6 +36,8 @@ export const draftFile = z.strictObject({
       gateway: z.boolean().default(false),
       /** Codes of the statements that define it. */
       definedBy: z.array(z.string()).min(1),
+      /** Where siblings differ only by a parameter, such as a number range or a sign: the steps, in order (ADR-003). */
+      levels: z.array(z.strictObject({ title: langString, description: langString.optional() })).optional(),
       rationale: z.string().min(1),
     }),
   ),
@@ -43,12 +47,22 @@ export const draftFile = z.strictObject({
       statement: langString,
       example: langString.optional(),
       hinders: z.array(code).min(1),
-      /** The code of the curriculum note that names the mistake, or null: unsourced. */
+      /** The code of the curriculum note that names the mistake, or null. */
       evidence: z.string().nullable(),
+      /** Or a publication that documents it. With neither, the mistake is unsourced. */
+      publication: z.strictObject({ citation: z.string().min(1), url: z.url().optional() }).optional(),
       rationale: z.string().min(1),
     }),
   ),
-  needs: z.array(z.strictObject({ from: code, to: code, rationale: z.string().min(1) })),
+  needs: z.array(
+    z.strictObject({
+      from: code,
+      to: code,
+      rationale: z.string().min(1),
+      /** The code of a statement in which the curriculum itself says so; the link then cites it rather than the drafting run. */
+      evidence: z.string().optional(),
+    }),
+  ),
 });
 export type DraftFile = z.infer<typeof draftFile>;
 
@@ -59,6 +73,7 @@ type Kind = (typeof schema.objectKind.enumValues)[number];
 export interface DraftReport {
   families: number;
   concepts: number;
+  levels: number;
   misconceptions: number;
   links: Record<string, number>;
   unsourcedMistakes: number;
@@ -74,7 +89,10 @@ export async function readDraft(file: string): Promise<DraftFile> {
   const families = new Set(d.families.map((f) => f.code));
   const concepts = new Set(d.concepts.map((c) => c.code));
   for (const c of d.concepts) if (!families.has(c.family)) problems.push(`${c.code}: no family ${c.family}`);
-  for (const m of d.misconceptions) for (const h of m.hinders) if (!concepts.has(h)) problems.push(`${m.code}: no concept ${h}`);
+  for (const m of d.misconceptions) {
+    for (const h of m.hinders) if (!concepts.has(h)) problems.push(`${m.code}: no concept ${h}`);
+    if (m.evidence && m.publication) problems.push(`${m.code}: cites both a curriculum note and a publication; give one source`);
+  }
   for (const n of d.needs) {
     if (!concepts.has(n.from)) problems.push(`needs: no concept ${n.from}`);
     if (!concepts.has(n.to)) problems.push(`needs: no concept ${n.to}`);
@@ -103,7 +121,9 @@ export async function loadDraft(db: Db, d: DraftFile): Promise<DraftReport> {
   const frameworkId = fw.id;
 
   // Statements by code, within this framework's documents.
-  const statementCodes = [...new Set([...d.concepts.flatMap((c) => c.definedBy), ...d.misconceptions.flatMap((m) => m.evidence ?? [])])];
+  const statementCodes = [
+    ...new Set([...d.concepts.flatMap((c) => c.definedBy), ...d.misconceptions.flatMap((m) => m.evidence ?? []), ...d.needs.flatMap((n) => n.evidence ?? [])]),
+  ];
   const rows = await db
     .select({ id: schema.statement.id, code: schema.statement.humanCode })
     .from(schema.statement)
@@ -117,7 +137,7 @@ export async function loadDraft(db: Db, d: DraftFile): Promise<DraftReport> {
   const unknown = statementCodes.filter((c) => !statementId.has(c));
   if (unknown.length) throw new Error(`no statements ${unknown.join(", ")} in ${d.framework}`);
 
-  const report: DraftReport = { families: 0, concepts: 0, misconceptions: 0, links: {}, unsourcedMistakes: 0, notInDraft: [] };
+  const report: DraftReport = { families: 0, concepts: 0, levels: 0, misconceptions: 0, links: {}, unsourcedMistakes: 0, notInDraft: [] };
 
   await db.transaction(async (tx) => {
     const ai = await aiSource(tx, frameworkId, d.source);
@@ -142,8 +162,16 @@ export async function loadDraft(db: Db, d: DraftFile): Promise<DraftReport> {
     }
     report.concepts = d.concepts.length;
 
-    const link = async (linkType: LinkType, from: [string, Kind], to: [string, Kind], rationale: string | null) => {
-      await upsertLink(tx, { linkType, fromId: from[0], fromKind: from[1], toId: to[0], toKind: to[1], sourceId: ai, rationale });
+    // Levels by their place in the concept's list: a revised draft updates them in place.
+    for (const c of d.concepts) {
+      for (const [i, l] of (c.levels ?? []).entries()) {
+        await upsertLevel(tx, conceptId.get(c.code)!, i + 1, { title: l.title, description: l.description ?? null });
+        report.levels++;
+      }
+    }
+
+    const link = async (linkType: LinkType, from: [string, Kind], to: [string, Kind], rationale: string | null, sourceId = ai) => {
+      await upsertLink(tx, { linkType, fromId: from[0], fromKind: from[1], toId: to[0], toKind: to[1], sourceId, rationale });
       report.links[linkType] = (report.links[linkType] ?? 0) + 1;
     };
     for (const c of d.concepts) {
@@ -153,7 +181,11 @@ export async function loadDraft(db: Db, d: DraftFile): Promise<DraftReport> {
     }
 
     for (const m of d.misconceptions) {
-      const evidence = m.evidence ? await statementSource(tx, frameworkId, statementId.get(m.evidence)!) : null;
+      const evidence = m.evidence
+        ? await statementSource(tx, frameworkId, statementId.get(m.evidence)!)
+        : m.publication
+          ? await publicationSource(tx, frameworkId, m.publication)
+          : null;
       if (!evidence) report.unsourcedMistakes++;
       const id = await upsertByCode(tx, schema.misconception, frameworkId, m.code, {
         statement: m.statement,
@@ -164,7 +196,10 @@ export async function loadDraft(db: Db, d: DraftFile): Promise<DraftReport> {
     }
     report.misconceptions = d.misconceptions.length;
 
-    for (const n of d.needs) await link("needs", [conceptId.get(n.from)!, "concept"], [conceptId.get(n.to)!, "concept"], n.rationale);
+    for (const n of d.needs) {
+      const source = n.evidence ? await statementSource(tx, frameworkId, statementId.get(n.evidence)!) : ai;
+      await link("needs", [conceptId.get(n.from)!, "concept"], [conceptId.get(n.to)!, "concept"], n.rationale, source);
+    }
 
     // What this framework holds that the draft no longer does.
     const drafted = new Set([...d.families.map((f) => f.code), ...d.concepts.map((c) => c.code), ...d.misconceptions.map((m) => m.code)]);
@@ -201,6 +236,32 @@ async function statementSource(tx: Tx, frameworkId: string, statementId: string)
   if (found) return found.id;
   const [made] = await tx.insert(source).values({ frameworkId, kind: "statement", statementId }).returning({ id: source.id });
   return made!.id;
+}
+
+/** A publication as a source: one per citation. */
+async function publicationSource(tx: Tx, frameworkId: string, p: { citation: string; url?: string }): Promise<string> {
+  const { source } = schema;
+  const [found] = await tx
+    .select({ id: source.id })
+    .from(source)
+    .where(and(eq(source.frameworkId, frameworkId), eq(source.kind, "publication"), eq(source.citation, p.citation)));
+  if (found) {
+    await tx.update(source).set({ url: p.url ?? null }).where(eq(source.id, found.id));
+    return found.id;
+  }
+  const [made] = await tx.insert(source).values({ frameworkId, kind: "publication", citation: p.citation, url: p.url ?? null }).returning({ id: source.id });
+  return made!.id;
+}
+
+/** A concept's level at a place in its order, updated, or created. Its status is never touched. */
+async function upsertLevel(tx: Tx, conceptId: string, ordinal: number, values: { title: Record<string, string>; description: Record<string, string> | null }) {
+  const { level } = schema;
+  const [found] = await tx
+    .select({ id: level.id })
+    .from(level)
+    .where(and(eq(level.conceptId, conceptId), eq(level.ordinal, ordinal)));
+  if (found) await tx.update(level).set(values).where(eq(level.id, found.id));
+  else await tx.insert(level).values({ conceptId, ordinal, ...values });
 }
 
 type ByCode = typeof schema.family | typeof schema.concept | typeof schema.misconception;

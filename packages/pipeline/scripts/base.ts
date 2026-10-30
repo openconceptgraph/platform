@@ -158,7 +158,7 @@ try {
       const db = workingDb();
       try {
         const r = await loadDraft(db, draft);
-        console.log(`${r.families} families, ${r.concepts} concepts, ${r.misconceptions} typical mistakes (${r.unsourcedMistakes} unsourced)`);
+        console.log(`${r.families} families, ${r.concepts} concepts with ${r.levels} levels, ${r.misconceptions} typical mistakes (${r.unsourcedMistakes} unsourced)`);
         console.log(`links: ${Object.entries(r.links).map(([t, n]) => `${n} ${t}`).join(", ")}`);
         if (r.notInDraft.length) console.log(`! in the database but not in this draft, left alone: ${r.notInDraft.join(", ")}`);
       } finally {

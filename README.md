@@ -40,7 +40,7 @@ A reviewer signs in, opens a batch and decides each item on a screen of its own.
 - a **concept card**: is this one concept a teacher can teach in one go, with its own typical mistake?
 - a **typical mistake**: do learners really make it, and does it get in the way of the concept?
 
-A confirmation needs a reason from a short list; a rejection or a request for a change needs the reviewer's own words. The record keeps exactly what the screen showed and how long the reviewer spent on it. Deciding a concept card also decides the curriculum lines it cites and its family, and deciding a mistake also decides the concepts it gets in the way of. A reviewer may change their mind, giving a reason; the earlier decision stays on record.
+A confirmation needs a reason from a short list; a rejection or a request for a change needs the reviewer's own words. The record keeps exactly what the screen showed and how long the reviewer spent on it. Deciding a concept card also decides the curriculum lines it cites, its family and its levels, and deciding a mistake also decides the concepts it gets in the way of. A reviewer may change their mind, giving a reason; the earlier decision stays on record.
 
 Reviewers do not see the AI's agreement score or other reviewers' decisions, so that their judgement is their own.
 
@@ -87,7 +87,7 @@ With `--record`, a check that finds no errors is recorded against each document 
 
 **Import** loads the files into Postgres under their own IDs, with each statement's printed label and sub-heading, its transcriber's note and how the check confirmed it. Run again, it changes nothing that has not changed; a corrected statement becomes a new revision. Nothing is deleted: an object that is no longer in the files is refused, to be retired instead.
 
-**Draft** loads families, concepts, prerequisite links and typical mistakes, all as proposed. Each link cites the drafting run (model and prompt version) as its source, and each mistake cites the curriculum note that names it, or nothing, which flags it as unsourced. Objects are matched by code and links by their ends, so a revised draft updates in place. The drafting method is a versioned prompt in [`packages/pipeline/prompts`](packages/pipeline/prompts); a change of method is a new version. Drafts are working material, not data for publishing: only reviewed objects reach a release.
+**Draft** loads families, concepts with their levels, prerequisite links and typical mistakes, all as proposed. Each link cites the drafting run (model and prompt version) as its source, except a prerequisite the curriculum itself states, which cites that statement. Each mistake cites the curriculum note that names it, or a publication that documents it, or nothing, which flags it as unsourced. Objects are matched by code and links by their ends, so a revised draft updates in place. The drafting method is a versioned prompt in [`packages/pipeline/prompts`](packages/pipeline/prompts); a change of method is a new version. Drafts are working material, not data for publishing: only reviewed objects reach a release.
 
 **Release** builds a base release from the working database, laid out as the [specification](https://github.com/openconceptgraph/spec) says (`docs/release.md`), then checks it with the specification's reference validator. It holds:
 - the whole transcription;
