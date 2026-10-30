@@ -10,6 +10,9 @@
 //                                               record a person's check of printed pages
 //   pnpm base release <dir> --version 0.1.0 --out <folder> [--previous <folder>] [--released YYYY-MM-DD]
 //                                               build a release from the working database, then validate it
+//   pnpm base release <dir> --draft --version 0.1.0-draft.1 --out <folder>
+//                                               build a draft bundle for a private workspace: proposed
+//                                               interpretation too; never published, so never inside a git repository
 //
 // <dir> is e.g. ../base-za-caps/mathematics. Paths are relative to where pnpm runs.
 import path from "node:path";
@@ -23,6 +26,7 @@ import { readBase } from "../src/files";
 import { importBase } from "../src/import";
 import { mintBase } from "../src/mint";
 import { buildRelease, readReleaseConfig, specValidator, writeRelease } from "../src/release";
+import { insideGitRepository } from "../src/where";
 
 const { values: o, positionals } = parseArgs({
   allowPositionals: true,
@@ -37,6 +41,7 @@ const { values: o, positionals } = parseArgs({
     out: { type: "string" },
     previous: { type: "string" },
     released: { type: "string" },
+    draft: { type: "boolean" },
   },
 });
 
@@ -115,18 +120,34 @@ try {
       const base = await readBase(dir);
       const out = at(o.out, "--out");
       if (!o.version) throw new Error("--version is required");
+      const draft = o.draft ?? false;
+      // A draft holds unreviewed AI drafts: it must never be committed, and so never published (ADR-031).
+      if (draft) {
+        const repo = insideGitRepository(out);
+        if (repo) throw new Error(`A draft bundle is never published, so it is never written inside a git repository (${repo}). Choose a folder outside one.`);
+      }
       const db = workingDb();
       try {
         const release = await buildRelease(db, base.framework.data.slug, await readReleaseConfig(dir), {
           version: o.version,
           released: o.released ?? today(),
           previousDir: o.previous ? at(o.previous, "--previous") : undefined,
+          draft,
         });
         await writeRelease(out, release);
         const f = release.files as Record<string, unknown[]>;
         const shown = path.relative(callerDir, out);
-        console.log(`${base.framework.data.slug} ${o.version} written to ${shown.startsWith("..") ? out : shown || "."}:`);
-        console.log(`  ${f.statements!.length} statements; ${f.concepts!.length} concepts, ${f.misconceptions!.length} typical mistakes, ${f.links!.length} links confirmed`);
+        console.log(`${base.framework.data.slug} ${o.version}${draft ? " (a draft bundle: not for publication)" : ""} written to ${shown.startsWith("..") ? out : shown || "."}:`);
+        if (draft) {
+          const status = (rows: unknown) => {
+            const all = rows as { status: string }[];
+            const confirmedCount = all.filter((r) => r.status === "confirmed").length;
+            return `${all.length} (${confirmedCount} confirmed)`;
+          };
+          console.log(`  ${f.statements!.length} statements; ${status(f.concepts)} concepts, ${status(f.misconceptions)} typical mistakes, ${status(f.links)} links`);
+        } else {
+          console.log(`  ${f.statements!.length} statements; ${f.concepts!.length} concepts, ${f.misconceptions!.length} typical mistakes, ${f.links!.length} links confirmed`);
+        }
       } finally {
         await db.close();
       }
@@ -135,7 +156,7 @@ try {
         console.log("! Not validated: no built spec checkout found (set OCG_SPEC_DIR, or build ../spec)");
         break;
       }
-      const v = spawnSync(process.execPath, [cli, "release", out], { encoding: "utf8" });
+      const v = spawnSync(process.execPath, [cli, draft ? "draft" : "release", out], { encoding: "utf8" });
       process.stdout.write(v.stdout);
       process.stderr.write(v.stderr);
       process.exitCode = v.status ?? 1;

@@ -75,6 +75,7 @@ pnpm base import ../base-za-caps/mathematics    # into the working database
 pnpm base signoff ../base-za-caps/mathematics --document <name> --pages 75-77 --by "<public name>"
 pnpm base draft <draft file>                    # an AI draft of concepts, prerequisites and mistakes
 pnpm base release ../base-za-caps/mathematics --version 0.1.0 --out <folder> [--previous <folder>]
+pnpm base release ../base-za-caps/mathematics --draft --version 0.1.0-draft.1 --out <folder outside any repository>
 ```
 
 **Mint** gives every object a UUID and every statement a code such as `8/1.3/c04` (grade, topic, column, number). It never changes one that exists.
@@ -96,6 +97,8 @@ With `--record`, a check that finds no errors is recorded against each document 
 - for each released object, a summary of its review under the reviewers' public names.
 
 Planted controls and retired objects are left out. Given the release before it (`--previous`), it refuses to drop an object that release held unless the object has been retired. The base's `release.json` gives the title, licence, credit lines and review policy. The same database gives the same bytes. The validator is a built checkout of the spec repository: `OCG_SPEC_DIR`, or `../spec` beside this repository, as the workspace keeps it.
+
+With `--draft`, it builds a **draft bundle** instead, for a client's private workspace or a tool that cannot wait for two reviewers: the same layout, with proposed families, concepts, mistakes and links beside confirmed ones (never rejected ones), each with its review so far: its status and the public names of whoever has confirmed it. Its version is marked draft (`0.1.0-draft.1`) and its manifest says `base-draft`. A draft holds AI drafts nobody may yet have reviewed, so it is never published: the command refuses to write one inside a git repository, and the specification's validator checks it only as a draft and refuses it as a release.
 
 ## Making batches
 

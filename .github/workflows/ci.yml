@@ -61,7 +61,7 @@ jobs:
       - name: The specification's reference validator, for the release tests
         # Pinned: move it on when the specification changes.
         env:
-          SPEC_REF: 75223997766ab90a88e3cfeb5574677575ce0b10
+          SPEC_REF: 3d3bdc33265d5ddd8b6a11afe2849ce290c56c8d
         run: |
           git clone --quiet https://github.com/openconceptgraph/spec "$RUNNER_TEMP/spec"
           git -C "$RUNNER_TEMP/spec" checkout --quiet "$SPEC_REF"
