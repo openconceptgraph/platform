@@ -162,6 +162,20 @@ export type GroupFile = z.infer<typeof group>;
 export const columns = ["concepts", "notes"] as const;
 export type Column = (typeof columns)[number];
 
+/**
+ * The part of a printed page that a topic occupies, where the page also holds
+ * topics not transcribed with it: a box in PDF points from the page's top
+ * left, as pdftotext crops it. The check reads only that part of the page.
+ */
+export const regionFile = z.strictObject({
+  page: z.int().positive(),
+  x: z.int().min(0),
+  y: z.int().min(0),
+  width: z.int().positive(),
+  height: z.int().positive(),
+});
+export type Region = z.infer<typeof regionFile>;
+
 export const topicFile = z.strictObject({
   document: text,
   grade: text,
@@ -170,6 +184,8 @@ export const topicFile = z.strictObject({
   topic: text,
   /** Printed pages the topic occupies. */
   pages: z.array(z.int().positive()).min(1),
+  /** Pages the topic shares with others, and the part of each it occupies. Not imported. */
+  regions: z.array(regionFile).default([]),
   /** Text on these pages that is neither a heading nor a statement, such as the hours. Not imported. */
   furniture: z.array(text).default([]),
   /** "Concepts and skills": the content itself. */
@@ -262,6 +278,10 @@ function crossCheck(base: BaseFiles) {
     if (!docs.has(t.data.document)) problems.push(`${t.name}: no document "${t.data.document}"`);
     else if (!nodeCodes.get(t.data.document)?.has(t.data.topic)) problems.push(`${t.name}: no node ${t.data.topic} in ${t.data.document}`);
     if (!grades.has(t.data.grade)) problems.push(`${t.name}: no grade ${t.data.grade} in the framework`);
+    for (const r of t.data.regions) {
+      if (!t.data.pages.includes(r.page)) problems.push(`${t.name}: a region is on page ${r.page}, which is not one of the topic's pages`);
+    }
+    for (const dup of duplicates(t.data.regions.map((r) => String(r.page)))) problems.push(`${t.name}: page ${dup} has two regions`);
     for (const { statement } of topicStatements(t.data)) {
       if (statement.code) statementCodes.push(statement.code);
       if (!t.data.pages.includes(statement.page)) {

@@ -168,6 +168,21 @@ describe("importing a transcription", () => {
     await writeFile(plan, json(minted));
   });
 
+  it("refuses a region on a page the topic does not occupy, or two on one page", async () => {
+    const original = await readFile(statementsFile(), "utf8");
+    const topic = JSON.parse(original);
+    try {
+      topic.regions = [{ page: 13, x: 0, y: 0, width: 100, height: 100 }];
+      await writeFile(statementsFile(), json(topic));
+      await expect(readBase(dir)).rejects.toThrow(/region is on page 13/);
+      topic.regions = [0, 1].map(() => ({ page: 12, x: 0, y: 0, width: 100, height: 100 }));
+      await writeFile(statementsFile(), json(topic));
+      await expect(readBase(dir)).rejects.toThrow(/page 12 has two regions/);
+    } finally {
+      await writeFile(statementsFile(), original);
+    }
+  });
+
   it("refuses files without their IDs", async () => {
     const topic = JSON.parse(await readFile(statementsFile(), "utf8"));
     topic.notes[0].statements.push({ text: "A new note.", page: 12 });

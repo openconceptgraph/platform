@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
-import { allNodes, type BaseFiles, type DocumentFile, type Loaded, type StatementFile, type TopicFile, topicStatements } from "./files";
+import { allNodes, type BaseFiles, type DocumentFile, type Loaded, type Region, type StatementFile, type TopicFile, topicStatements } from "./files";
 
 // Checks a transcription against the PDF it was made from, word for word.
 //
@@ -606,11 +606,15 @@ export function documentFurniture(doc: DocumentFile): string[] {
 
 const run = promisify(execFile);
 
-/** One PDF page's text in reading order, by poppler's pdftotext. */
-export async function pdfPageText(pdf: string, pdfPage: number): Promise<string> {
-  const { stdout } = await run("pdftotext", ["-f", String(pdfPage), "-l", String(pdfPage), "-enc", "UTF-8", pdf, "-"], {
-    maxBuffer: 16 * 1024 * 1024,
-  });
+/** pdftotext's arguments for one page's text, or only a region of it. */
+export function pdftotextArgs(pdf: string, pdfPage: number, region?: Omit<Region, "page">): string[] {
+  const crop = region ? ["-x", region.x, "-y", region.y, "-W", region.width, "-H", region.height].map(String) : [];
+  return ["-f", String(pdfPage), "-l", String(pdfPage), ...crop, "-enc", "UTF-8", pdf, "-"];
+}
+
+/** One PDF page's text in reading order, by poppler's pdftotext: the whole page, or the region given. */
+export async function pdfPageText(pdf: string, pdfPage: number, region?: Omit<Region, "page">): Promise<string> {
+  const { stdout } = await run("pdftotext", pdftotextArgs(pdf, pdfPage, region), { maxBuffer: 16 * 1024 * 1024 });
   return stdout;
 }
 
@@ -628,7 +632,8 @@ export async function checkBase(base: BaseFiles, document: string, pdf: string):
   for (const topic of base.topics.filter((t) => t.data.document === document)) {
     const texts = new Map<number, string>();
     for (const printed of topic.data.pages) {
-      texts.set(printed, await pdfPageText(pdf, printed + doc.data.pdf.printedPageOffset));
+      const region = topic.data.regions.find((r) => r.page === printed);
+      texts.set(printed, await pdfPageText(pdf, printed + doc.data.pdf.printedPageOffset, region));
     }
     findings.push(...checkTopic(topic, texts, furniture));
   }

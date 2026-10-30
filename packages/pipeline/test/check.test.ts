@@ -1,5 +1,9 @@
+import { spawnSync } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkTopic, normalise, withoutLayoutBrackets } from "../src/check";
+import { checkTopic, normalise, pdfPageText, pdftotextArgs, withoutLayoutBrackets } from "../src/check";
 import type { Loaded, TopicFile } from "../src/files";
 
 // An invented curriculum page, laid out the way a PDF's text layer holds a
@@ -36,6 +40,7 @@ function topic(over: Partial<TopicFile> = {}): Loaded<TopicFile> {
       grade: "8",
       topic: "1.1",
       pages: [7],
+      regions: [],
       furniture: [],
       concepts: [
         {
@@ -129,3 +134,52 @@ describe("brackets a transcription writes for layout", () => {
     expect(withoutLayoutBrackets("(3⁄4)² = (–5) x 2")).toBe("(3⁄4)² = (–5) x 2");
   });
 });
+
+describe("a page shared with topics not transcribed with it", () => {
+  it("is read only in the region the topic occupies", () => {
+    expect(pdftotextArgs("c.pdf", 72)).toEqual(["-f", "72", "-l", "72", "-enc", "UTF-8", "c.pdf", "-"]);
+    expect(pdftotextArgs("c.pdf", 72, { x: 0, y: 40, width: 126, height: 750 })).toEqual(
+      ["-f", "72", "-l", "72", "-x", "0", "-y", "40", "-W", "126", "-H", "750", "-enc", "UTF-8", "c.pdf", "-"],
+    );
+  });
+
+  const hasPdftotext = !spawnSync("pdftotext", ["-v"]).error;
+  it.skipIf(!hasPdftotext)("leaves out the other topics' text, by pdftotext's crop", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "ocg-region-"));
+    try {
+      const pdf = path.join(dir, "shared.pdf");
+      await writeFile(pdf, onePagePdf([
+        { x: 50, y: 100, text: "Add and subtract signed numbers" },
+        { x: 50, y: 500, text: "Investigate and extend patterns" },
+      ]));
+      expect(await pdfPageText(pdf, 1)).toMatch(/signed numbers[\s\S]*extend patterns/);
+      const region = await pdfPageText(pdf, 1, { x: 0, y: 0, width: 595, height: 300 });
+      expect(region).toContain("Add and subtract signed numbers");
+      expect(region).not.toContain("patterns");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+/** A one-page A4 PDF with lines of Helvetica, each placed in points from the page's top left. */
+function onePagePdf(lines: { x: number; y: number; text: string }[]): Buffer {
+  const content = lines.map((l) => `BT /F1 12 Tf ${l.x} ${842 - l.y} Td (${l.text}) Tj ET`).join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((o, i) => {
+    offsets.push(pdf.length);
+    pdf += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}`;
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(pdf, "latin1");
+}
