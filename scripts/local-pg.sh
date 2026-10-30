@@ -25,6 +25,7 @@ need_bin() {
 urls() {
   echo "DATABASE_URL=postgres://$user@localhost/ocg?host=$dir"
   echo "TEST_DATABASE_URL=postgres://$user@localhost/ocg_test?host=$dir"
+  echo "OVERLAY_DATABASE_URL=postgres://$user@localhost/ocg_workspace?host=$dir"
 }
 
 case "${1:-}" in
@@ -39,7 +40,7 @@ case "${1:-}" in
     "$bin/pg_ctl" -D "$data" -l "$dir/postgres.log" -w \
       -o "-k $dir -c listen_addresses=''" start >/dev/null
     if [[ -n "${fresh:-}" ]]; then
-      psql -h "$dir" -d postgres -qc 'create database ocg' -c 'create database ocg_test'
+      psql -h "$dir" -d postgres -qc 'create database ocg' -c 'create database ocg_test' -c 'create database ocg_workspace'
     fi
     echo "Postgres running on socket $dir"
     urls

@@ -53,15 +53,17 @@ jobs:
         run: |
           pnpm db:check
           pnpm db:generate
-          test -z "$(git status --porcelain -- packages/db/migrations)" || {
-            git status --porcelain -- packages/db/migrations
-            echo "The schema has changed without a migration: run pnpm db:generate and commit the result."
+          pnpm --filter @ocg/overlay run check
+          pnpm --filter @ocg/overlay run generate
+          test -z "$(git status --porcelain -- packages/db/migrations packages/overlay/migrations)" || {
+            git status --porcelain -- packages/db/migrations packages/overlay/migrations
+            echo "A schema has changed without a migration: run its generate script and commit the result."
             exit 1
           }
       - name: The specification's reference validator, for the release tests
         # Pinned: move it on when the specification changes.
         env:
-          SPEC_REF: 75223997766ab90a88e3cfeb5574677575ce0b10
+          SPEC_REF: 988dd26a38eddbfb844e3e7cbc38a97b7b4acacd
         run: |
           git clone --quiet https://github.com/openconceptgraph/spec "$RUNNER_TEMP/spec"
           git -C "$RUNNER_TEMP/spec" checkout --quiet "$SPEC_REF"

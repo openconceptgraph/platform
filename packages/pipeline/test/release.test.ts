@@ -13,6 +13,7 @@ import { readBase } from "../src/files";
 import { importBase } from "../src/import";
 import { mintBase } from "../src/mint";
 import { buildRelease, type Release, readReleaseConfig, specValidator, writeRelease } from "../src/release";
+import { insideGitRepository } from "../src/where";
 
 // An invented curriculum, imported and drafted, then partly confirmed by two
 // reviewers: the tests are about what a release holds and leaves out.
@@ -293,5 +294,58 @@ describe("a release after another", () => {
     await expect(build("0.1.1", first)).rejects.toThrow(/without retiring them[\s\S]*concept/);
     await twice(ids["C-2"]!, "concept");
     expect(codes((await build("0.1.1", first)).files.concepts)).toEqual(["C-1", "C-2"]);
+  });
+});
+
+describe("a draft bundle", () => {
+  const buildDraft = async (version = "0.1.0-draft.1") =>
+    buildRelease(db, SLUG, await readReleaseConfig(dir), { version, released: "2026-11-01", draft: true });
+
+  it("is marked a draft, in its manifest and its version, and a release never is", async () => {
+    const d = await buildDraft();
+    expect(d.manifest).toMatchObject({ kind: "base-draft", version: "0.1.0-draft.1" });
+    await expect(buildDraft("0.1.0")).rejects.toThrow(/marked draft/);
+    await expect(build("0.1.0-draft.1")).rejects.toThrow(/never a release/);
+  });
+
+  it("holds proposed interpretation beside confirmed, each with its review so far, but no planted control", async () => {
+    await judge(ids["M-2"]!, "misconception", reviewers.ada);
+    const d = await buildDraft();
+    expect(codes(d.files.concepts)).toEqual(["C-1", "C-2", "C-3"]);
+    expect(codes(d.files.misconceptions)).toEqual(["M-1", "M-2"]);
+    const review = (code: string) => (d.files.reviews as { object: string }[]).find((r) => r.object === ids[code]);
+    expect(review("C-1")).toMatchObject({ status: "confirmed", reviewers: ["A. Example", "B. Sample"], judgements: 2 });
+    expect(review("M-2")).toMatchObject({ status: "proposed", reviewers: ["A. Example"], judgements: 1 });
+    expect(review("C-3")).toEqual({ object: ids["C-3"], objectKind: "concept", revision: 1, status: "proposed", reviewers: [], judgements: 0 });
+    // The links to C-3, which a release leaves out because C-3 is not confirmed.
+    const touchesC3 = (rows: unknown) => (rows as { from: string; to: string }[]).filter((l) => l.from === ids["C-3"] || l.to === ids["C-3"]).length;
+    expect(touchesC3(d.files.links)).toBeGreaterThan(0);
+    expect(touchesC3((await build()).files.links)).toBe(0);
+  });
+
+  // Skipped only on a machine with no spec checkout; in CI, a missing validator fails the test.
+  it.skipIf(!process.env.CI && !process.env.OCG_SPEC_DIR && !specValidator())("conforms to the specification as a draft, and is refused as a release", async () => {
+    const at = path.join(out, "draft");
+    await writeRelease(at, await buildDraft());
+    const cli = specValidator();
+    expect(cli).not.toBeNull();
+    const asDraft = spawnSync(process.execPath, [cli!, "draft", at], { encoding: "utf8" });
+    expect(asDraft.stdout).toContain("conforms (0 errors");
+    const asRelease = spawnSync(process.execPath, [cli!, "release", at], { encoding: "utf8" });
+    expect(asRelease.stdout).toContain("bundle-kind");
+    expect(asRelease.status).toBe(1);
+  });
+
+  it("leaves out what a reviewer has rejected, and the links to it", async () => {
+    await judge(ids["C-3"]!, "concept", reviewers.ben, "reject");
+    const d = await buildDraft();
+    expect(codes(d.files.concepts)).toEqual(["C-1", "C-2"]);
+    const links = d.files.links as { from: string; to: string }[];
+    expect(links.some((l) => l.from === ids["C-3"] || l.to === ids["C-3"])).toBe(false);
+  });
+
+  it("is never written inside a git repository", async () => {
+    expect(insideGitRepository(path.join(out, "not-yet-made", "draft"))).toBeNull();
+    expect(insideGitRepository(path.join(import.meta.dirname, "draft-here"))).not.toBeNull();
   });
 });

@@ -12,11 +12,19 @@ import { z } from "zod";
 // confirmed, each object with a summary of its review under the reviewers'
 // public names. Planted controls never reach a release, nor does anything
 // retired. Output is deterministic: the same database gives the same bytes.
+//
+// With `draft`, it builds a draft bundle instead: the same layout for a
+// private workspace, holding proposed interpretation beside confirmed (never
+// rejected), each object with its review so far. A draft is never published.
 
-export const SPEC_VERSION = "0.1.0";
+export const SPEC_VERSION = "0.1.1";
+
+/** A draft bundle's version is a pre-release marked draft: 0.1.0-draft.1. */
+const DRAFT_VERSION = /^\d+\.\d+\.\d+-draft(\.[0-9A-Za-z-]+)*$/;
 
 type LangString = Record<string, string>;
 type Kind = (typeof schema.objectKind.enumValues)[number];
+type Status = (typeof schema.reviewStatus.enumValues)[number];
 
 const langString = z.record(z.string(), z.string().min(1)).refine((m) => Object.keys(m).length > 0);
 
@@ -45,6 +53,8 @@ export interface ReleaseOptions {
   previousDir?: string;
   /** The language of authored plain text held without a language map (link rationales). */
   language?: string;
+  /** Build a draft bundle: proposed interpretation too, for a private workspace; never published. */
+  draft?: boolean;
 }
 
 /** The release's files by manifest key, in the specification's names. */
@@ -82,7 +92,10 @@ const clean = <T extends Record<string, unknown>>(o: T): T => Object.fromEntries
 
 export async function buildRelease(db: Db, frameworkSlug: string, config: ReleaseConfig, options: ReleaseOptions): Promise<Release> {
   const lang = options.language ?? "en";
+  const draft = options.draft ?? false;
   const s = schema;
+  if (draft && !DRAFT_VERSION.test(options.version)) throw new Error(`A draft bundle's version is marked draft, such as 0.1.0-draft.1, not ${options.version}`);
+  if (!draft && options.version.includes("-draft")) throw new Error(`${options.version} is marked draft: a draft bundle is built with --draft, and is never a release`);
 
   const [fw] = await db.select().from(s.framework).where(eq(s.framework.slug, frameworkSlug));
   if (!fw) throw new Error(`No framework "${frameworkSlug}" in the database`);
@@ -120,8 +133,9 @@ export async function buildRelease(db: Db, frameworkSlug: string, config: Releas
   const planOrder = new Map(plans.map((p, i) => [p.id, i]));
   const allPlacements = plans.length ? (await db.select().from(s.placement).where(inArray(s.placement.teachingPlanId, plans.map((p) => p.id)))).filter((p) => live(p.id)) : [];
 
-  // Interpretation: confirmed, live, not planted.
-  const confirmed = <T extends { id: string; status: string }>(rows: T[]) => rows.filter((r) => r.status === "confirmed" && live(r.id));
+  // Interpretation: confirmed (in a draft, proposed too), live, not planted.
+  const statuses: string[] = draft ? ["proposed", "confirmed"] : ["confirmed"];
+  const confirmed = <T extends { id: string; status: string }>(rows: T[]) => rows.filter((r) => statuses.includes(r.status) && live(r.id));
   const families = confirmed(await db.select().from(s.family).where(eq(s.family.frameworkId, fw.id))).sort((a, b) => byNatural(a.humanCode, b.humanCode));
   const concepts = confirmed(await db.select().from(s.concept).where(eq(s.concept.frameworkId, fw.id))).sort((a, b) => byNatural(a.humanCode, b.humanCode));
   const conceptCode = new Map(concepts.map((c) => [c.id, c.humanCode]));
@@ -150,13 +164,15 @@ export async function buildRelease(db: Db, frameworkSlug: string, config: Releas
     for (const [id, kind] of previous.live) {
       if (released.has(id) || ["framework", "education-level", "document", "teaching-plan", "placement", "link", "source"].includes(kind)) continue;
       if (retiredNow.has(id)) retired.push({ id, kind, retiredIn: options.version });
-      else problems.push(`${kind} ${id} was in ${previous.version} but is not confirmed now; confirm it again or retire it`);
+      else problems.push(`${kind} ${id} was in ${previous.version} but is not ${statuses.join(" or ")} now; confirm it again or retire it`);
     }
   }
   if (problems.length) throw new Error(`The release would drop objects without retiring them:\n${problems.join("\n")}`);
   const retiredIds = new Set(retired.map((r) => r.id));
 
-  const candidateLinks = (await db.select().from(s.link).where(eq(s.link.status, "confirmed"))).filter((l) => live(l.id) && !planted.has(l.fromId) && !planted.has(l.toId));
+  const candidateLinks = (await db.select().from(s.link).where(inArray(s.link.status, statuses as Status[]))).filter(
+    (l) => live(l.id) && !planted.has(l.fromId) && !planted.has(l.toId),
+  );
   const links = candidateLinks.filter((l) =>
     l.linkType === "replaced-by" ? retiredIds.has(l.fromId) && released.has(l.toId) : released.has(l.fromId) && released.has(l.toId),
   );
@@ -183,12 +199,12 @@ export async function buildRelease(db: Db, frameworkSlug: string, config: Releas
   const userIds = [...new Set(sources.map((x) => x.reviewerId).filter((x): x is string => x !== null))];
 
   // Reviews: the judgements that decide each released object's status, as ocg_derive_status counts them.
-  const interp: { id: string; kind: Kind; revision: number }[] = [
-    ...families.map((x) => ({ id: x.id, kind: "family" as const, revision: x.revision })),
-    ...concepts.map((x) => ({ id: x.id, kind: "concept" as const, revision: x.revision })),
-    ...levels.map((x) => ({ id: x.id, kind: "level" as const, revision: x.revision })),
-    ...misconceptions.map((x) => ({ id: x.id, kind: "misconception" as const, revision: x.revision })),
-    ...links.map((x) => ({ id: x.id, kind: "link" as const, revision: x.revision })),
+  const interp: { id: string; kind: Kind; revision: number; status: Status }[] = [
+    ...families.map((x) => ({ id: x.id, kind: "family" as const, revision: x.revision, status: x.status })),
+    ...concepts.map((x) => ({ id: x.id, kind: "concept" as const, revision: x.revision, status: x.status })),
+    ...levels.map((x) => ({ id: x.id, kind: "level" as const, revision: x.revision, status: x.status })),
+    ...misconceptions.map((x) => ({ id: x.id, kind: "misconception" as const, revision: x.revision, status: x.status })),
+    ...links.map((x) => ({ id: x.id, kind: "link" as const, revision: x.revision, status: x.status })),
   ];
   const judgements = interp.length
     ? await db.select().from(s.judgement).where(and(inArray(s.judgement.objectId, interp.map((o) => o.id)), eq(s.judgement.isControl, false)))
@@ -205,20 +221,21 @@ export async function buildRelease(db: Db, frameworkSlug: string, config: Releas
     return name;
   };
 
+  // In a draft, a proposed object's review is the review so far: perhaps one reviewer, perhaps none.
   const reviews = interp.map((o) => {
     const current = judgements.filter((j) => j.objectId === o.id && j.objectRevision === o.revision && !superseded.has(j.id));
     const confirmers = [...new Set(current.filter((j) => j.decision === "confirm").map((j) => j.reviewerId))];
-    if (current.length === 0 || confirmers.length === 0) throw new Error(`The confirmed ${o.kind} ${o.id} has no current judgements`);
-    const decided = current.map((j) => j.createdAt.toISOString().slice(0, 10)).sort().at(-1)!;
-    return {
+    if (o.status === "confirmed" && (current.length === 0 || confirmers.length === 0)) throw new Error(`The confirmed ${o.kind} ${o.id} has no current judgements`);
+    const decided = current.map((j) => j.createdAt.toISOString().slice(0, 10)).sort().at(-1);
+    return clean({
       object: o.id,
       objectKind: o.kind,
       revision: o.revision,
-      status: "confirmed",
+      status: o.status,
       decided,
       reviewers: confirmers.map(nameOf).sort(byNatural),
       judgements: current.length,
-    };
+    });
   });
   reviews.sort((a, b) => KIND_ORDER.indexOf(a.objectKind) - KIND_ORDER.indexOf(b.objectKind) || a.object.localeCompare(b.object));
 
@@ -378,7 +395,7 @@ export async function buildRelease(db: Db, frameworkSlug: string, config: Releas
 
   const manifest = clean({
     spec: SPEC_VERSION,
-    kind: "base-release",
+    kind: draft ? "base-draft" : "base-release",
     base: fw.slug,
     framework: fw.id,
     version: options.version,
